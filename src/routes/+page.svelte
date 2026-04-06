@@ -50,7 +50,6 @@
   .license {
     opacity: 0.5;
     font-size: x-small;
-    padding: 1rem;
     line-height: 1.5;
   }
 
