@@ -1,9 +1,10 @@
 FROM node:20-bookworm-slim AS build
 WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY package*.json ./
-RUN npm ci
+RUN pnpm install --no-frozen-lockfile
 COPY . .
-RUN npm run build && npm prune --omit=dev
+RUN pnpm run build
 
 FROM node:20-bookworm-slim
 WORKDIR /app
