@@ -8,7 +8,7 @@ const config = {
 			mode: 'auto',
 			directives: {
 				'default-src': ['self'],
-				'connect-src': ['self'],
+				'connect-src': ['self', 'wss://relay.damus.io'],
 				'img-src': ['self', 'data:', 'blob:'],
 				'style-src': ['self'],
 				'font-src': ['self'],
