@@ -40,6 +40,8 @@
     </li>
   </ol>
 
+  <p><a href="/explore">Explore notes →</a></p>
+
   <h3>Source code</h3>
 
   <cite>
