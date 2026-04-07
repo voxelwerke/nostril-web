@@ -9,6 +9,13 @@
 
   <p>iOS / Android.</p>
 
+  <a href="apple.com/"
+    ><div class="ios-icon">
+      <b>N</b><i>!</i><br />
+      <span>iPhone</span>
+    </div>
+  </a>
+
   <ol class="featuring">
     <li>
       <b>Simple</b><br />
@@ -69,5 +76,35 @@
 
   p b {
     color: var(--acid);
+  }
+
+  .ios-icon {
+    border-radius: 1rem;
+    box-shadow: 2px 2px 5px black;
+    display: inline-block;
+    background: linear-gradient(to bottom, var(--acid), var(--laser));
+    width: 150px;
+    height: 150px;
+    text-align: center;
+
+    b {
+      font-size: 120px;
+      line-height: 150px;
+      text-align: center;
+      color: var(--void);
+      font-family: "Raleway", system-ui, sans-serif;
+      text-shadow: 2px 2px 0 var(--chill);
+    }
+
+    i {
+      font-size: 110px;
+      line-height: 150px;
+      text-align: center;
+      color: var(--acid);
+      font-family: "comic sans ms", system-ui, sans-serif;
+      font-style: normal;
+      font-weight: bold;
+      text-shadow: 2px 2px 0 var(--chill);
+    }
   }
 </style>
