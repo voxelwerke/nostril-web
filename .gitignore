@@ -22,3 +22,5 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 nostr-users.db
+nostr-users.db-shm
+nostr-users.db-wal
