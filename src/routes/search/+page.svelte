@@ -1,6 +1,7 @@
 <script lang="ts">
     import { page } from "$app/state";
     import { goto } from "$app/navigation";
+    import { nip19 } from "nostr-tools";
 
     // The URL is the source of truth for 'q'
     let q = $state(page.url.searchParams.get("q") ?? "");
@@ -88,9 +89,9 @@
                             {/if}
                         </td>
                         <td
-                            >{u.display_name ||
+                            ><a href="/{nip19.npubEncode(u.pubkey)}">{u.display_name ||
                                 u.name ||
-                                u.pubkey.slice(0, 8)}</td
+                                u.pubkey.slice(0, 8)}</a></td
                         >
                         <td>{u.nip05 ?? ""}</td>
                         <td>{u.follower_count}</td>
