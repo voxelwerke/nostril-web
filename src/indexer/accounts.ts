@@ -2,20 +2,16 @@ import WebSocket from "ws";
 import Database from "better-sqlite3";
 
 const DB_PATH = process.env.DB_PATH || "./nostr-users.db";
-const CRAWL_DURATION_MS = 15 * 60 * 1000;
+const CRAWL_DURATION_MS = 5 * 60 * 1000;
+const BATCH_SIZE = 500;
+const FIREHOSE = process.argv.includes("-firehose");
 
 const RELAYS = [
-  "wss://relay.damus.io",
   "wss://nos.lol",
-  "wss://relay.nostr.band",
   "wss://relay.primal.net",
-  "wss://nostr.wine",
   "wss://relay.snort.social",
   "wss://nostr-pub.wellorder.net",
   "wss://purplepag.es",
-  "wss://nostr.fmt.wiz.biz",
-  "wss://data.nostr.band",
-  "wss://relay.mutinywallet.com",
 ];
 
 // ─── DB SETUP ────────────────────────────────────────────────────────────────
@@ -65,6 +61,12 @@ db.exec(`
     followee TEXT NOT NULL,
     PRIMARY KEY (follower, followee)
   ) WITHOUT ROWID;
+
+  -- Track when we last tried to resolve an unresolved pubkey
+  CREATE TABLE IF NOT EXISTS resolve_attempts (
+    pubkey     TEXT PRIMARY KEY,
+    queried_at INTEGER NOT NULL
+  );
 
   CREATE INDEX IF NOT EXISTS idx_users_name  ON users(name COLLATE NOCASE);
   CREATE INDEX IF NOT EXISTS idx_users_nip05 ON users(nip05);
@@ -128,30 +130,86 @@ function cypher(query: string, params?: string) {
   }
 }
 
+// ─── BATCH RESOLVER ──────────────────────────────────────────────────────────
+
+const BATCH_COOLDOWN_MS = 10_000; // wait 10s between batches per relay
+
+const nextUnresolved = db.prepare(`
+  SELECT DISTINCT f.followee
+  FROM follows f
+  WHERE f.followee NOT IN (SELECT pubkey FROM users)
+    AND f.followee NOT IN (SELECT pubkey FROM resolve_attempts WHERE queried_at > ?)
+  LIMIT ?
+`);
+
+const markQueried = db.prepare(`
+  INSERT INTO resolve_attempts (pubkey, queried_at) VALUES (?, ?)
+  ON CONFLICT(pubkey) DO UPDATE SET queried_at = excluded.queried_at
+`);
+
+class BatchResolver {
+  private dispatched = 0;
+
+  next(): string[] | null {
+    const now = Math.floor(Date.now() / 1000);
+    const cutoff = now - 3600;
+    const rows = nextUnresolved.all(cutoff, BATCH_SIZE) as {
+      followee: string;
+    }[];
+    if (rows.length === 0) return null;
+
+    const pubkeys = rows.map((r) => r.followee);
+
+    // Mark them as queried so no other relay grabs the same batch
+    const markMany = db.transaction((keys: string[]) => {
+      for (const pk of keys) markQueried.run(pk, now);
+    });
+    markMany(pubkeys);
+
+    this.dispatched += pubkeys.length;
+    return pubkeys;
+  }
+
+  get dispatchedCount() {
+    return this.dispatched;
+  }
+}
+
+const resolver = new BatchResolver();
+
 // ─── EVENT HANDLERS ──────────────────────────────────────────────────────────
 
 function handleProfile(event: any) {
-  const meta = JSON.parse(event.content || "{}");
-  const name = meta.name?.slice(0, 200) || meta.display_name?.slice(0, 200) || null;
+  let meta: any;
+  try {
+    meta = JSON.parse(event.content || "{}");
+  } catch {
+    return; // malformed JSON, skip
+  }
+  const name =
+    meta.name?.slice(0, 200) || meta.display_name?.slice(0, 200) || null;
 
   upsertUser.run({
     pubkey: event.pubkey,
-    name: meta.name?.slice(0, 200) || null,
-    display_name: (meta.display_name || meta.displayName)?.slice(0, 200) || null,
-    about: meta.about?.slice(0, 1000) || null,
-    picture: meta.picture?.slice(0, 500) || null,
-    banner: meta.banner?.slice(0, 500) || null,
-    website: meta.website?.slice(0, 300) || null,
+    name,
+    display_name:
+      (meta.display_name || meta.displayName)?.toString().slice(0, 200) || null,
+    about: meta.about?.toString().slice(0, 1000) || null,
+    picture: meta.picture?.toString().slice(0, 500) || null,
+    banner: meta.banner?.toString().slice(0, 500) || null,
+    website: meta.website?.toString().slice(0, 300) || null,
     nip05: meta.nip05?.toString().slice(0, 300) || null,
-    lud16: meta.lud16?.slice(0, 300) || null,
-    raw: event.content?.slice(0, 2000) || null,
+    lud16: meta.lud16?.toString().slice(0, 300) || null,
+    raw: event.content?.toString().slice(0, 2000) || null,
     event_created_at: event.created_at,
     seen_at: Math.floor(Date.now() / 1000),
   });
 
   // Create/update node in graphqlite
   const safeName = (name || "").replace(/'/g, "\\'").replace(/"/g, '\\"');
-  cypher(`MERGE (p:Person {pubkey: "${event.pubkey}"}) SET p.name = "${safeName}"`);
+  cypher(
+    `MERGE (p:Person {pubkey: "${event.pubkey}"}) SET p.name = "${safeName}"`,
+  );
 }
 
 function handleFollowList(event: any) {
@@ -180,6 +238,34 @@ function connectRelay(url: string, subId: string) {
   let reconnectAttempts = 0;
   let dead = false;
 
+  let batchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function sendNextBatch() {
+    if (dead || !ws || ws.readyState !== WebSocket.OPEN) return;
+    const batch = resolver.next();
+    if (!batch) {
+      console.log(`[${subId}] resolver: no more unresolved pubkeys`);
+      return;
+    }
+    console.log(`[${subId}] resolving batch of ${batch.length}...`);
+    ws.send(JSON.stringify(["CLOSE", subId + "-resolve"]));
+    ws.send(
+      JSON.stringify([
+        "REQ",
+        subId + "-resolve",
+        { kinds: [0], authors: batch },
+      ]),
+    );
+  }
+
+  function scheduleNextBatch() {
+    if (batchTimer) return;
+    batchTimer = setTimeout(() => {
+      batchTimer = null;
+      sendNextBatch();
+    }, BATCH_COOLDOWN_MS);
+  }
+
   function connect() {
     if (dead) return;
     console.log(`connecting to ${url}...`);
@@ -189,18 +275,32 @@ function connectRelay(url: string, subId: string) {
     ws.on("open", () => {
       reconnectAttempts = 0;
       console.log(`[+] ${url}`);
-      ws.send(JSON.stringify(["REQ", subId, { kinds: [0], limit: 5000 }]));
-      ws.send(
-        JSON.stringify([
-          "REQ",
-          subId + "-follows",
-          { kinds: [3], limit: 5000 },
-        ]),
-      );
+
+      if (FIREHOSE) {
+        // Firehose mode: yolo whoever is posting right now
+        ws.send(JSON.stringify(["REQ", subId, { kinds: [0], limit: 5000 }]));
+        ws.send(
+          JSON.stringify([
+            "REQ",
+            subId + "-follows",
+            { kinds: [3], limit: 5000 },
+          ]),
+        );
+      }
+
+      // Always resolve unresolved pubkeys
+      sendNextBatch();
     });
 
     ws.on("message", (raw: Buffer) => {
       const msg = JSON.parse(raw.toString());
+
+      // When a resolve batch finishes (EOSE), schedule the next one with cooldown
+      if (msg[0] === "EOSE" && msg[1] === subId + "-resolve") {
+        scheduleNextBatch();
+        return;
+      }
+
       if (msg[0] !== "EVENT" || !msg[2]) return;
 
       const event = msg[2];
@@ -223,6 +323,7 @@ function connectRelay(url: string, subId: string) {
   return {
     close() {
       dead = true;
+      if (batchTimer) clearTimeout(batchTimer);
       ws?.close();
     },
   };
@@ -231,6 +332,7 @@ function connectRelay(url: string, subId: string) {
 // ─── MAIN ────────────────────────────────────────────────────────────────────
 
 console.log(`\n🕳️  NOSTR DATABASE OF DOOM`);
+console.log(`   Mode: ${FIREHOSE ? "FIREHOSE + RESOLVE" : "RESOLVE ONLY"}`);
 console.log(`   DB: ${DB_PATH}`);
 console.log(`   Duration: ${CRAWL_DURATION_MS / 60000} minutes`);
 console.log(`   Relays: ${RELAYS.length}\n`);
@@ -238,10 +340,22 @@ console.log(`   Relays: ${RELAYS.length}\n`);
 const connections = RELAYS.map((url, i) => connectRelay(url, `doom-${i}`));
 
 const ticker = setInterval(() => {
-  const userCount = (db.prepare("SELECT COUNT(*) as c FROM users").get() as any).c;
-  const followCount = (db.prepare("SELECT COUNT(*) as c FROM follows").get() as any).c;
-  console.log(`users: ${userCount}  follows: ${followCount}`);
-}, 5000);
+  const userCount = (db.prepare("SELECT COUNT(*) as c FROM users").get() as any)
+    .c;
+  const followCount = (
+    db.prepare("SELECT COUNT(*) as c FROM follows").get() as any
+  ).c;
+  const unresolvedCount = (
+    db
+      .prepare(
+        "SELECT COUNT(DISTINCT followee) as c FROM follows WHERE followee NOT IN (SELECT pubkey FROM users)",
+      )
+      .get() as any
+  ).c;
+  console.log(
+    `users: ${userCount}  follows: ${followCount}  unresolved: ${unresolvedCount}  dispatched: ${resolver.dispatchedCount}`,
+  );
+}, 500);
 
 // ─── SHUTDOWN ────────────────────────────────────────────────────────────────
 
@@ -271,21 +385,36 @@ setTimeout(() => {
     }
   }
 
-  const userCount = (db.prepare("SELECT COUNT(*) as c FROM users").get() as any).c;
-  const followCount = (db.prepare("SELECT COUNT(*) as c FROM follows").get() as any).c;
+  const userCount = (db.prepare("SELECT COUNT(*) as c FROM users").get() as any)
+    .c;
+  const followCount = (
+    db.prepare("SELECT COUNT(*) as c FROM follows").get() as any
+  ).c;
+  const unresolvedCount = (
+    db
+      .prepare(
+        "SELECT COUNT(DISTINCT followee) as c FROM follows WHERE followee NOT IN (SELECT pubkey FROM users)",
+      )
+      .get() as any
+  ).c;
 
   console.log(`\n✅ DONE`);
-  console.log(`   Users:   ${userCount.toLocaleString()}`);
-  console.log(`   Follows: ${followCount.toLocaleString()}`);
-  console.log(`   DB:      ${DB_PATH}`);
+  console.log(`   Users:      ${userCount.toLocaleString()}`);
+  console.log(`   Follows:    ${followCount.toLocaleString()}`);
+  console.log(`   Unresolved: ${unresolvedCount.toLocaleString()}`);
+  console.log(`   DB:         ${DB_PATH}`);
 
   // ─── SAMPLE GRAPH SEARCH ───────────────────────────────────────────────
   if (hasGraphqlite) {
     console.log("\n🔎 Sample: people within 2 hops of first Person node...\n");
     try {
-      const result = db.prepare(`
+      const result = db
+        .prepare(
+          `
         SELECT cypher('MATCH (a:Person)-[:FOLLOWS*1..2]->(b:Person) RETURN b.pubkey, b.name LIMIT 10')
-      `).get() as any;
+      `,
+        )
+        .get() as any;
       console.log(Object.values(result)[0]);
     } catch (e) {
       console.log("   (graph query skipped — graphqlite error)");
