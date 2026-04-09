@@ -5,6 +5,7 @@ import type { RequestHandler } from "./$types";
 
 const RELAYS = (process.env.RELAYS || "wss://nos.lol,wss://relay.primal.net,wss://purplepag.es").split(",");
 const QLEN = parseInt(process.env.QLEN || "10") * 1000;
+const MIN_FETCH = parseInt(process.env.MIN_FETCH || String(5 * 60));
 
 const upsertEvent = db.prepare(`
   INSERT INTO events (id, pubkey, kind, content, tags, created_at, sig, raw)
@@ -16,16 +17,37 @@ const getEvents = db.prepare(`
   SELECT raw FROM events WHERE pubkey = ? ORDER BY created_at DESC LIMIT 200
 `);
 
+const getFetchedAt = db.prepare(`
+  SELECT fetched_at FROM events_fetched WHERE pubkey = ?
+`);
+
+const upsertFetched = db.prepare(`
+  INSERT INTO events_fetched (pubkey, fetched_at) VALUES (?, ?)
+  ON CONFLICT(pubkey) DO UPDATE SET fetched_at = excluded.fetched_at
+`);
+
 export const GET: RequestHandler = ({ params }) => {
   const hex = npubToHex(params.npub);
   if (!hex) return new Response("invalid npub", { status: 400 });
 
+  const ac = new AbortController();
+  const { signal } = ac;
   const encoder = new TextEncoder();
+
   const stream = new ReadableStream({
     start(controller) {
       function send(event: string, data: any) {
+        if (signal.aborted) return;
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
       }
+
+      function cleanup() {
+        if (!signal.aborted) ac.abort();
+      }
+
+      signal.addEventListener("abort", () => {
+        try { controller.close(); } catch {}
+      });
 
       // 1. Send cached events from DB
       const cached = getEvents.all(hex) as { raw: string }[];
@@ -39,19 +61,33 @@ export const GET: RequestHandler = ({ params }) => {
       }
       send("cached", { count: cached.length });
 
-      // 2. Connect to relays and query for live events
+      // 2. Check if we need to fetch from relays
+      const now = Math.floor(Date.now() / 1000);
+      const fetched = getFetchedAt.get(hex) as { fetched_at: number } | undefined;
+      const fresh = fetched && (now - fetched.fetched_at) < MIN_FETCH;
+
+      if (fresh) {
+        send("done", {});
+        cleanup();
+        return;
+      }
+
+      // 3. Connect to relays and query for live events
+      upsertFetched.run(hex, now);
+
       const sockets: WebSocket[] = [];
-      let closed = false;
 
       function finish() {
-        if (closed) return;
-        closed = true;
-        sockets.forEach((ws) => { try { ws.close(); } catch {} });
         send("done", {});
-        controller.close();
+        sockets.forEach((ws) => { try { ws.close(); } catch {} });
+        cleanup();
       }
 
       const timer = setTimeout(finish, QLEN);
+      signal.addEventListener("abort", () => {
+        clearTimeout(timer);
+        sockets.forEach((ws) => { try { ws.close(); } catch {} });
+      });
 
       for (const url of RELAYS) {
         try {
@@ -59,11 +95,12 @@ export const GET: RequestHandler = ({ params }) => {
           sockets.push(ws);
 
           ws.on("open", () => {
-            ws.send(JSON.stringify(["REQ", "profile", { authors: [hex], limit: 200 }]));
+            if (signal.aborted) return ws.close();
+            ws.send(JSON.stringify(["REQ", "profile", { authors: [hex], kinds: [0, 1, 3, 6], limit: 200 }]));
           });
 
           ws.on("message", (raw: Buffer) => {
-            if (closed) return;
+            if (signal.aborted) return;
             let msg: any;
             try { msg = JSON.parse(raw.toString()); } catch { return; }
 
@@ -72,7 +109,6 @@ export const GET: RequestHandler = ({ params }) => {
             if (seenIds.has(ev.id)) return;
             seenIds.add(ev.id);
 
-            // Save to DB
             try {
               upsertEvent.run({
                 id: ev.id,
@@ -93,17 +129,10 @@ export const GET: RequestHandler = ({ params }) => {
           ws.on("close", () => {});
         } catch {}
       }
-
-      // Safety: if stream is cancelled, clean up
-      return () => {
-        clearTimeout(timer);
-        closed = true;
-        sockets.forEach((ws) => { try { ws.close(); } catch {} });
-      };
     },
 
     cancel() {
-      // handled by return fn above
+      ac.abort();
     },
   });
 

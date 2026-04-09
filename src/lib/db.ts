@@ -19,6 +19,11 @@ db.exec(`
     raw        TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_events_pubkey ON events(pubkey, kind, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS events_fetched (
+    pubkey     TEXT PRIMARY KEY,
+    fetched_at INTEGER NOT NULL
+  );
 `);
 
 export default db;
