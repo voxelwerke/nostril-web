@@ -23,7 +23,6 @@
         es.addEventListener("event", (e) => {
             const ev = JSON.parse(e.data);
 
-            // Skip reactions
             if (ev.kind === 7) return;
 
             if (ev.kind === 0) {
@@ -32,10 +31,11 @@
                 } catch {}
             }
 
-            // Extract follow list
             if (ev.kind === 3) {
                 friends = (ev.tags || [])
-                    .filter((t: string[]) => t[0] === "p" && t[1]?.length === 64)
+                    .filter(
+                        (t: string[]) => t[0] === "p" && t[1]?.length === 64,
+                    )
                     .map((t: string[]) => ({
                         pubkey: t[1],
                         npub: nip19.npubEncode(t[1]),
@@ -60,22 +60,23 @@
         return () => es.close();
     });
 
-    function kindLabel(kind: number): string {
-        switch (kind) {
-            case 0: return "profile";
-            case 1: return "note";
-            case 3: return "follows";
-            case 6: return "repost";
-            default: return `kind:${kind}`;
-        }
-    }
-
     function formatDate(ts: number): string {
-        return new Date(ts * 1000).toLocaleString();
+        return new Date(ts * 1000).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+        });
     }
 
-    // Filter out kind 7 (reactions) and kind 3 (follows) from the event table
-    let displayEvents = $derived(events.filter((ev) => ev.kind !== 3 && ev.kind !== 7));
+    let displayName = $derived(
+        profile?.display_name || profile?.name || page.params.npub.slice(0, 16),
+    );
+
+    let shortNpub = $derived(page.params.npub.slice(0, 16) + "...");
+
+    let displayEvents = $derived(
+        events.filter((ev) => ev.kind !== 0 && ev.kind !== 3 && ev.kind !== 7),
+    );
 </script>
 
 {#if profile}
@@ -94,18 +95,14 @@
                 />
             {/if}
             <div>
-                <h1>
-                    {profile.display_name ||
-                        profile.name ||
-                        profile.pubkey?.slice(0, 12)}
-                </h1>
+                <h1>{displayName}</h1>
                 {#if profile.nip05}<p>{profile.nip05}</p>{/if}
                 {#if profile.about}<p>{profile.about}</p>{/if}
             </div>
         </div>
     </div>
 {:else if !loading}
-    <h1>{page.params.npub.slice(0, 16)}...</h1>
+    <h1>{shortNpub}</h1>
 {/if}
 
 {#if loading && events.length == 0}
@@ -123,38 +120,38 @@
     </details>
 {/if}
 
-<table>
-    <thead>
-        <tr>
-            <th>type</th>
-            <th>time</th>
-            <th>content</th>
-        </tr>
-    </thead>
-    <tbody>
-        {#each displayEvents as ev (ev.id)}
-            <tr>
-                <td>{kindLabel(ev.kind)}</td>
-                <td>{formatDate(ev.created_at)}</td>
-                <td>
+<section class="posts">
+    {#each displayEvents as ev (ev.id)}
+        <div class="post">
+            <img src="about:." alt="" class="avatar" />
+            <div class="post-body">
+                <cite
+                    >{displayName} <span class="npub">{shortNpub}</span>
+                    &middot; {formatDate(ev.created_at)}</cite
+                >
+                <article>
                     {#each (ev.content ?? "").split(IMG_RE) as segment, i}
                         {segment}
                         {#if i < (ev.content?.match(IMG_RE) ?? []).length}
                             {@const url = ev.content.match(IMG_RE)[i]}
-                            <br /><img src={url} alt="" class="inline-img" /><br />
+                            <br /><img src={url} alt="" class="inline-img" /><br
+                            />
                         {/if}
                     {/each}
-                </td>
-            </tr>
-        {/each}
-    </tbody>
-</table>
+                </article>
+            </div>
+        </div>
+    {/each}
+</section>
 
 <style>
     .banner {
         width: 100%;
         max-height: 200px;
         object-fit: cover;
+    }
+    .profile-header {
+        margin-bottom: 1.5rem;
     }
     .profile-info {
         display: flex;
@@ -170,20 +167,42 @@
     .friends li {
         padding: 0.1rem 0;
     }
+    .posts {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .post {
+        display: flex;
+        flex-direction: row;
+        gap: 1rem;
+    }
+    .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    .post-body {
+        min-width: 0;
+    }
+    cite {
+        font-style: normal;
+        font-weight: bold;
+    }
+    .npub {
+        font-weight: normal;
+        opacity: 0.5;
+    }
+    article {
+        margin-top: 0.25rem;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
     .inline-img {
         max-width: 300px;
         max-height: 300px;
         border-radius: 4px;
         margin: 0.25rem 0;
-    }
-    table {
-        width: 100%;
-    }
-    td {
-        border-bottom: 1px solid var(--void);
-        max-width: 30rem;
-        overflow: hidden;
-        white-space: pre-wrap;
-        word-break: break-word;
     }
 </style>
