@@ -51,15 +51,32 @@ export function MastodonAccount({
         </div>
       </div>
       <div>
-        {statuses.map((s) => (
-          <div class="post" key={s.id}>
-            <div dangerouslySetInnerHTML={{ __html: s.content }} />
-            <a class="muted" href={s.url} target="_blank" rel="noreferrer">
-              {new Date(s.created_at).toLocaleString()}
-            </a>
-            <PostToolbar uri={mUri(s.id, instance)} />
-          </div>
-        ))}
+        {statuses.map((s) => {
+          const authorUri = mUri(account.id, instance);
+          return (
+            <div class="post" key={s.id}>
+              <div dangerouslySetInnerHTML={{ __html: s.content }} />
+              <a class="muted" href={s.url} target="_blank" rel="noreferrer">
+                {new Date(s.created_at).toLocaleString()}
+              </a>
+              <PostToolbar
+                uri={mUri(s.id, instance)}
+                post={{
+                  uri: mUri(s.id, instance),
+                  author_uri: authorUri,
+                  body: s.content_text,
+                  published_at: s.created_at,
+                  url: s.url,
+                }}
+                author={{
+                  uri: authorUri,
+                  name: account.display_name || account.acct,
+                  image: account.avatar,
+                }}
+              />
+            </div>
+          );
+        })}
       </div>
     </>
   );

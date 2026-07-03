@@ -15,6 +15,7 @@ export function Header() {
       <a href="/" class="brand">
         nostril
       </a>
+      <a href="/likes">likes</a>
       <form class="search" onSubmit={submit}>
         <input
           value={q}

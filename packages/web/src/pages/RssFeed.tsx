@@ -76,7 +76,18 @@ export function RssFeed({ params }: { params: { id: string } }) {
               <div class="muted">
                 {new Date(item.published_at).toLocaleDateString()}
               </div>
-              {uri ? <PostToolbar uri={uri} /> : null}
+              {uri ? (
+                <PostToolbar
+                  uri={uri}
+                  post={{
+                    uri,
+                    title: item.title,
+                    body: item.content_text,
+                    published_at: item.published_at,
+                    url: item.link,
+                  }}
+                />
+              ) : null}
             </div>
           );
         })}

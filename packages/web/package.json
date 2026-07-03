@@ -12,6 +12,7 @@
   "dependencies": {
     "@nostril/shared": "workspace:*",
     "@preact/signals": "^2.9.2",
+    "@sqlite.org/sqlite-wasm": "3.53.0-build1",
     "preact": "^10.25.4",
     "wouter-preact": "^3.5.1"
   },

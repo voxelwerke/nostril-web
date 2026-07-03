@@ -88,15 +88,31 @@ export function NostrProfile({ params }: { params: { npub: string } }) {
       {loading ? <p class="muted">Loading notes...</p> : null}
 
       <div>
-        {events.map((ev) => (
-          <div class="post" key={ev.id}>
-            {ev.content}
-            <div class="muted">
-              {new Date(ev.created_at * 1000).toLocaleString()}
+        {events.map((ev) => {
+          const authorUri = profile?.pubkey ? nUri(profile.pubkey) : undefined;
+          return (
+            <div class="post" key={ev.id}>
+              {ev.content}
+              <div class="muted">
+                {new Date(ev.created_at * 1000).toLocaleString()}
+              </div>
+              <PostToolbar
+                uri={nUri(ev.id)}
+                post={{
+                  uri: nUri(ev.id),
+                  author_uri: authorUri,
+                  body: ev.content,
+                  published_at: new Date(ev.created_at * 1000).toISOString(),
+                }}
+                author={
+                  authorUri
+                    ? { uri: authorUri, name, image: profile?.picture }
+                    : undefined
+                }
+              />
             </div>
-            <PostToolbar uri={nUri(ev.id)} />
-          </div>
-        ))}
+          );
+        })}
       </div>
     </>
   );

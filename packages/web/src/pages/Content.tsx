@@ -48,7 +48,18 @@ export function ContentPage({ params }: { params: { uri: string } }) {
         </p>
       ) : null}
       {c.body ? <p class="content-body">{c.body}</p> : null}
-      {c.kind === "post" ? <PostToolbar uri={c.uri} /> : null}
+      {c.kind === "post" ? (
+        <PostToolbar
+          uri={c.uri}
+          post={{
+            uri: c.uri,
+            title: c.title,
+            body: c.body,
+            published_at: c.published_at,
+            url: c.url,
+          }}
+        />
+      ) : null}
     </article>
   );
 }

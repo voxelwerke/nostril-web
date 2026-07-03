@@ -1,10 +1,20 @@
 import { type Action, getFlags, toggle } from "../store/postActions.ts";
+import type { AuthorSnap, PostSnap } from "../store/db/types.ts";
 
-export function PostToolbar({ uri }: { uri: string }) {
-  const f = getFlags(uri).value;
+export function PostToolbar({
+  uri,
+  post,
+  author,
+}: {
+  uri: string;
+  post?: PostSnap;
+  author?: AuthorSnap;
+}) {
+  const f = getFlags(uri, author?.uri).value;
+  const ctx = { post, author };
 
   const btn = (action: Action, on: boolean) => (
-    <button type="button" aria-pressed={on} onClick={() => toggle(uri, action)}>
+    <button type="button" aria-pressed={on} onClick={() => toggle(uri, action, ctx)}>
       {action}
     </button>
   );

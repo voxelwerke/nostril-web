@@ -77,7 +77,18 @@ export function ResultCard({ r }: { r: SearchResult }) {
             ) : null}
           </div>
         ) : null}
-        {r.uri ? <PostToolbar uri={r.uri} /> : null}
+        {r.uri ? (
+          <PostToolbar
+            uri={r.uri}
+            post={{
+              uri: r.uri,
+              title: r.title,
+              body: r.body,
+              published_at: r.published_at,
+              url: r.url,
+            }}
+          />
+        ) : null}
       </div>
     </div>
   );

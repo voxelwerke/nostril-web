@@ -207,3 +207,12 @@ menu[type="toolbar"] button[aria-pressed="true"] {
   background: var(--acid);
   color: var(--void);
 }
+
+.storage-warning {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0.6rem 1rem;
+  background: var(--laser);
+  color: var(--void);
+  font-weight: 700;
+}
