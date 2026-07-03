@@ -1,6 +1,7 @@
 import { encodeUriPath } from "@nostril/shared/uri";
 import { hexToNpub } from "@nostril/shared";
 import type { SearchResult } from "@nostril/shared";
+import { PostToolbar } from "./PostToolbar.tsx";
 
 function fmtTime(d: Date): string {
   let h = d.getHours();
@@ -76,6 +77,7 @@ export function ResultCard({ r }: { r: SearchResult }) {
             ) : null}
           </div>
         ) : null}
+        {r.uri ? <PostToolbar uri={r.uri} /> : null}
       </div>
     </div>
   );

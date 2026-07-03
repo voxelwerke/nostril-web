@@ -1,4 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
+import { nUri } from "@nostril/shared";
+import { PostToolbar } from "../components/PostToolbar.tsx";
 
 interface Profile {
   name?: string;
@@ -92,6 +94,7 @@ export function NostrProfile({ params }: { params: { npub: string } }) {
             <div class="muted">
               {new Date(ev.created_at * 1000).toLocaleString()}
             </div>
+            <PostToolbar uri={nUri(ev.id)} />
           </div>
         ))}
       </div>

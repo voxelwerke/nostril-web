@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { getJson } from "../api.ts";
 import type { DocSource } from "@nostril/shared";
+import { PostToolbar } from "../components/PostToolbar.tsx";
 
 interface Content {
   kind: "post" | "entity";
@@ -32,7 +33,7 @@ export function ContentPage({ params }: { params: { uri: string } }) {
 
   const label = c.title || c.author || c.uri;
   return (
-    <>
+    <article>
       <div class="muted mono">{c.uri}</div>
       <h2>{label}</h2>
       {c.author && c.title ? <div class="muted">{c.author}</div> : null}
@@ -47,6 +48,7 @@ export function ContentPage({ params }: { params: { uri: string } }) {
         </p>
       ) : null}
       {c.body ? <p class="content-body">{c.body}</p> : null}
-    </>
+      {c.kind === "post" ? <PostToolbar uri={c.uri} /> : null}
+    </article>
   );
 }

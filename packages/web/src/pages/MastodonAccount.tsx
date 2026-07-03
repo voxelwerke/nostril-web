@@ -1,6 +1,8 @@
 import { useEffect, useState } from "preact/hooks";
 import { getJson } from "../api.ts";
+import { mUri } from "@nostril/shared";
 import type { MastodonAccount as Account } from "@nostril/shared";
+import { PostToolbar } from "../components/PostToolbar.tsx";
 
 interface Status {
   id: string;
@@ -55,6 +57,7 @@ export function MastodonAccount({
             <a class="muted" href={s.url} target="_blank" rel="noreferrer">
               {new Date(s.created_at).toLocaleString()}
             </a>
+            <PostToolbar uri={mUri(s.id, instance)} />
           </div>
         ))}
       </div>

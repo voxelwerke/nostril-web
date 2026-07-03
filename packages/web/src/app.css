@@ -187,3 +187,23 @@ button:hover {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+.post menu[type="toolbar"],
+.result menu[type="toolbar"],
+article menu[type="toolbar"] {
+  display: flex;
+  gap: 0.25rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+menu[type="toolbar"] button {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
+}
+
+menu[type="toolbar"] button[aria-pressed="true"] {
+  background: var(--acid);
+  color: var(--void);
+}

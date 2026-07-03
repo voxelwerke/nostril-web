@@ -123,13 +123,14 @@ async function pollFeed(
 
     const body = contentText.slice(0, 4000);
     const embedding = await embed(item.title ?? null, body);
+    const uri = await rssItemUri(item.link ?? null, feed.url, guid);
     await db.none(
       `INSERT INTO search_posts (source, source_key, uri, title, body, author, url, published_at, meta, embedding)
        VALUES ('rss_item', $<key>, $<uri>, $<title>, $<body>, $<author>, $<url>, $<published>, $<meta>, $<embedding>)
        ON CONFLICT (source, source_key) DO NOTHING`,
       {
         key: `${feed.id}:${guid}`,
-        uri: rssItemUri(item.link ?? null, feed.url, guid),
+        uri,
         title: item.title ?? null,
         body,
         author: parsed.title ?? null,

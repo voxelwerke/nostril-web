@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 export function canonicalUrl(raw: string): string {
   const u = new URL(raw.trim());
   if (u.protocol === "http:") u.protocol = "https:";
@@ -11,23 +9,28 @@ export function canonicalUrl(raw: string): string {
   return u.toString();
 }
 
-export function hashCanonical(s: string): string {
-  return createHash("sha256").update(s).digest("hex").slice(0, 32);
+export async function hashCanonical(s: string): Promise<string> {
+  const data = new TextEncoder().encode(s);
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  return [...new Uint8Array(buf)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 32);
 }
 
-export function rUri(canonical: string): string {
-  return `r:${hashCanonical(canonical)}`;
+export async function rUri(canonical: string): Promise<string> {
+  return `r:${await hashCanonical(canonical)}`;
 }
 
-export function rssItemUri(
+export async function rssItemUri(
   link: string | null,
   feedUrl: string,
   guid: string,
-): string {
+): Promise<string> {
   if (link) return rUri(canonicalUrl(link));
   return rUri(`${canonicalUrl(feedUrl)}\0${guid}`);
 }
 
-export function rssFeedUri(feedUrl: string): string {
+export async function rssFeedUri(feedUrl: string): Promise<string> {
   return rUri(canonicalUrl(feedUrl));
 }

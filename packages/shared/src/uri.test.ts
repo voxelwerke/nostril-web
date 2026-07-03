@@ -17,9 +17,9 @@ test("canonicalUrl normalizes host, scheme, fragment, trailing slash", () => {
   assert.equal(canonicalUrl("https://x.com/"), "https://x.com/");
 });
 
-test("rUri is stable for the same canonical url", () => {
-  const a = rUri(canonicalUrl("https://example.com/post"));
-  const b = rUri(canonicalUrl("https://example.com/post/"));
+test("rUri is stable for the same canonical url", async () => {
+  const a = await rUri(canonicalUrl("https://example.com/post"));
+  const b = await rUri(canonicalUrl("https://example.com/post/"));
   assert.equal(a, b);
   assert.match(a, /^r:[0-9a-f]{32}$/);
 });
@@ -33,17 +33,17 @@ test("mUri lowercases host", () => {
   assert.equal(mUri("123", "Mastodon.NZ"), "m:123@mastodon.nz");
 });
 
-test("rssItemUri uses link when present", () => {
-  const u = rssItemUri("https://blog.test/a", "https://feed.test/rss", "g1");
-  assert.equal(u, rUri(canonicalUrl("https://blog.test/a")));
+test("rssItemUri uses link when present", async () => {
+  const u = await rssItemUri("https://blog.test/a", "https://feed.test/rss", "g1");
+  assert.equal(u, await rUri(canonicalUrl("https://blog.test/a")));
 });
 
-test("rssItemUri falls back to feed url + guid", () => {
-  const u = rssItemUri(null, "https://feed.test/rss", "g1");
-  assert.equal(u, rUri(`${canonicalUrl("https://feed.test/rss")}\0g1`));
+test("rssItemUri falls back to feed url + guid", async () => {
+  const u = await rssItemUri(null, "https://feed.test/rss", "g1");
+  assert.equal(u, await rUri(`${canonicalUrl("https://feed.test/rss")}\0g1`));
 });
 
-test("parseUri round-trips builders", () => {
+test("parseUri round-trips builders", async () => {
   assert.deepEqual(parseUri(nUri("ab".repeat(32))), {
     scheme: "n",
     id: "ab".repeat(32),
@@ -53,10 +53,10 @@ test("parseUri round-trips builders", () => {
     id: "99",
     host: "mastodon.nz",
   });
-  const h = hashCanonical("x");
+  const h = await hashCanonical("x");
   assert.deepEqual(parseUri(`r:${h}`), { scheme: "r", hash: h });
 });
 
-test("hashCanonical is 32 hex chars", () => {
-  assert.match(hashCanonical("hello"), /^[0-9a-f]{32}$/);
+test("hashCanonical is 32 hex chars", async () => {
+  assert.match(await hashCanonical("hello"), /^[0-9a-f]{32}$/);
 });

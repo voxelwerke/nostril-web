@@ -79,6 +79,9 @@ importers:
       '@nostril/shared':
         specifier: workspace:*
         version: link:../shared
+      '@preact/signals':
+        specifier: ^2.9.2
+        version: 2.9.2(preact@10.29.3)
       preact:
         specifier: ^10.25.4
         version: 10.29.3
@@ -450,6 +453,14 @@ packages:
     peerDependencies:
       '@babel/core': 7.x
       vite: 2.x || 3.x || 4.x || 5.x || 6.x || 7.x || 8.x
+
+  '@preact/signals-core@1.14.3':
+    resolution: {integrity: sha512-m0K3vnbSLC5rHs2ZVfeAMvBtT1zIyq4mxx5OlNncSgMj5Iz6W5Rn3kPrDxAC+iIKmiVe0lSl6U37t5ZkEWoVAw==}
+
+  '@preact/signals@2.9.2':
+    resolution: {integrity: sha512-DvFPISNMSh3vPqRwPa1tAVAHl85aDq4pTyNu1bTGfrKr64F3EOCHjdUl9aUdohKBf1v9PRGLYuGFcJpfztkdoQ==}
+    peerDependencies:
+      preact: '>= 10.25.0 || >=11.0.0-0'
 
   '@prefresh/babel-plugin@0.5.3':
     resolution: {integrity: sha512-57LX2SHs4BX2s1IwCjNzTE2OJeEepRCNf1VTEpbNcUyHfMO68eeOWGDIt4ob9aYlW6PEWZ1SuwNikuoIXANDtQ==}
@@ -1993,6 +2004,13 @@ snapshots:
       - preact
       - rollup
       - supports-color
+
+  '@preact/signals-core@1.14.3': {}
+
+  '@preact/signals@2.9.2(preact@10.29.3)':
+    dependencies:
+      '@preact/signals-core': 1.14.3
+      preact: 10.29.3
 
   '@prefresh/babel-plugin@0.5.3': {}
 
