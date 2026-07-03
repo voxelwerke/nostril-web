@@ -2,12 +2,17 @@ import pg from "pg";
 
 const { Pool } = pg;
 
+export const DEFAULT_DATABASE_URL = "postgres://localhost:5432/nostril";
+
+export function databaseUrl(): string {
+  return process.env.DATABASE_URL || DEFAULT_DATABASE_URL;
+}
+
 let pool: pg.Pool | null = null;
 
 export function getPool(max = 10): pg.Pool {
   if (pool) return pool;
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL is not set");
+  const url = databaseUrl();
   pool = new Pool({
     connectionString: url,
     max,
