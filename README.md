@@ -38,6 +38,35 @@ Deploys to DigitalOcean App Platform via buildpacks (no Docker). See
 [.do/app.yaml](.do/app.yaml). Uses a managed **PostgreSQL 18** database — no
 extensions beyond `pg_trgm`.
 
+## Recent news feed
+
+The home page shows a "Recent" feed of diverse posts from the last 7 days,
+served by `GET /api/feed`. Instead of a plain chronological list, it favours
+variety: the worker embeds every ingested post into a sentence vector (stored
+as a `real[]` column on `search_posts`, no pgvector) using
+[fastembed](https://www.npmjs.com/package/fastembed) (ONNX, text-only — no sharp),
+and the API runs a recency-weighted farthest-point
+sampler over the last 7 days of candidates.
+
+The sampler is pure JavaScript in
+[packages/shared/src/vector.ts](packages/shared/src/vector.ts) behind a single
+`selectDiverse` function, so it can later be swapped for a native module without
+changing the API or front end. Run `pnpm --filter @nostril/shared test` to
+exercise it.
+
+Embeddings are computed **inline during ingest**, so there is no backfill job.
+Posts that were indexed before this feature (via `ON CONFLICT DO NOTHING`) will
+not have an embedding, so after deploying the migration, truncate the post
+tables and let the worker re-ingest for a clean feed.
+
+Relevant env vars (all optional):
+
+| Env var | Default | Purpose |
+|---------|---------|---------|
+| `EMBED_MODEL` | `fast-all-MiniLM-L6-v2` | fastembed model id (`fast-bge-small-en-v1.5`, etc.) |
+| `FEED_HALF_LIFE_HOURS` | `48` | recency decay half-life for the feed sampler |
+| `FEED_CANDIDATE_LIMIT` | `500` | max candidates loaded before sampling |
+
 ## Retention
 
 Post tables (`search_posts`, `mastodon_statuses`, `rss_items`, `nostr_events`)

@@ -3,6 +3,7 @@ import compression from "compression";
 import cors from "cors";
 import { getPool } from "@nostril/shared/db";
 import searchRouter from "./routes/search.ts";
+import feedRouter from "./routes/feed.ts";
 import nostrRouter from "./routes/nostr.ts";
 import mastodonRouter from "./routes/mastodon.ts";
 import rssRouter from "./routes/rss.ts";
@@ -23,6 +24,7 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.use("/api/search", searchRouter);
+app.use("/api/feed", feedRouter);
 app.use("/api/nostr", nostrRouter);
 app.use("/api/mastodon", mastodonRouter);
 app.use("/api/rss", rssRouter);

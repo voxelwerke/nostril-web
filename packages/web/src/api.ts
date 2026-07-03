@@ -13,6 +13,12 @@ export async function search(
   return res.json();
 }
 
+export async function fetchFeed(signal?: AbortSignal): Promise<SearchResult[]> {
+  const res = await fetch(`${BASE}/api/feed`, { signal });
+  if (!res.ok) throw new Error(`feed failed: ${res.status}`);
+  return res.json();
+}
+
 export async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`);
   if (!res.ok) throw new Error(`${path} failed: ${res.status}`);

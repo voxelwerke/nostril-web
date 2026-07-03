@@ -2,6 +2,7 @@ import Parser from "rss-parser";
 import type { Pool } from "@nostril/shared/db";
 import { parseOpml } from "./opml.ts";
 import { stripHtml } from "./html.ts";
+import { embed } from "./embed.ts";
 
 const OPML_PATH = process.env.OPML_PATH || "./feeds.opml";
 const POLL_INTERVAL_MS = parseInt(process.env.RSS_POLL_INTERVAL_MS || "1800000", 10);
@@ -111,18 +112,21 @@ async function pollFeed(
       [feed.id, guid, item.title ?? null, contentHtml, contentText, item.link ?? null, publishedAt],
     );
 
+    const body = contentText.slice(0, 4000);
+    const embedding = await embed(item.title ?? null, body);
     await pool.query(
-      `INSERT INTO search_posts (source, source_key, title, body, author, url, published_at, meta)
-       VALUES ('rss_item', $1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO search_posts (source, source_key, title, body, author, url, published_at, meta, embedding)
+       VALUES ('rss_item', $1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (source, source_key) DO NOTHING`,
       [
         `${feed.id}:${guid}`,
         item.title ?? null,
-        contentText.slice(0, 4000),
+        body,
         parsed.title ?? null,
         item.link ?? null,
         publishedAt,
         JSON.stringify({ feed_id: feed.id, guid }),
+        embedding,
       ],
     );
   }

@@ -12,6 +12,7 @@
   "dependencies": {
     "@nostril/shared": "workspace:*",
     "fast-xml-parser": "^4.5.1",
+    "fastembed": "^2.1.0",
     "nostr-tools": "^2.23.3",
     "pg": "^8.13.1",
     "rss-parser": "^3.13.0",

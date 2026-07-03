@@ -1,5 +1,6 @@
 import type { Pool } from "@nostril/shared/db";
 import { stripHtml } from "./html.ts";
+import { embed } from "./embed.ts";
 
 const INSTANCES = (process.env.MASTODON_INSTANCES || "mastodon.nz")
   .split(",")
@@ -146,18 +147,21 @@ async function upsertStatus(pool: Pool, instance: string, s: Status) {
     [instance, s.id, s.account.id, s.account.acct, s.content, text, s.url, s.created_at, JSON.stringify(s)],
   );
 
+  const body = text.slice(0, 4000);
+  const embedding = await embed(null, body);
   await pool.query(
-    `INSERT INTO search_posts (source, source_key, title, body, author, url, published_at, meta)
-     VALUES ('mastodon_status', $1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO search_posts (source, source_key, title, body, author, url, published_at, meta, embedding)
+     VALUES ('mastodon_status', $1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (source, source_key) DO NOTHING`,
     [
       `${instance}:${s.id}`,
       null,
-      text.slice(0, 4000),
+      body,
       s.account.acct,
       s.url,
       s.created_at,
       JSON.stringify({ instance, id: s.id, acct: s.account.acct }),
+      embedding,
     ],
   );
 }
