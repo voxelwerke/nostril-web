@@ -43,7 +43,7 @@ Three services on one server (private networking):
 |---------|---------|-------|
 | **postgres** | no | Sliplane Postgres preset |
 | **nostril-web** | yes | Dockerfile default CMD — migrate + API + static web |
-| **nostril-worker** | no | Same Dockerfile, CMD override: `pnpm start:worker` |
+| **nostril-worker** | no | Same Dockerfile, CMD override: `sh scripts/start-worker.sh` |
 
 **nostril-web** settings: branch `main`, healthcheck `/api/health`, env
 `DATABASE_URL` (internal postgres host) and optional `RELAYS`. Do not set
