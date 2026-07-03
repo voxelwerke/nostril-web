@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { getPool } from "@nostril/shared/db";
+import { getDb } from "@nostril/shared/db";
 import { recencyWeight, selectDiverse, type Candidate } from "@nostril/shared";
 import type { SearchResult } from "@nostril/shared";
 
 const router = Router();
-const pool = getPool();
+const db = getDb();
 
 const HALF_LIFE_HOURS = parseFloat(process.env.FEED_HALF_LIFE_HOURS || "48");
 const CANDIDATE_LIMIT = parseInt(process.env.FEED_CANDIDATE_LIMIT || "500", 10);
@@ -18,15 +18,15 @@ router.get("/", async (req, res) => {
   const offset = Math.max(parseInt(String(req.query.offset ?? "0"), 10) || 0, 0);
 
   try {
-    const { rows } = await pool.query<Row>(
+    const rows = await db.any<Row>(
       `SELECT source, source_key, title, body, author, url, image_url,
               published_at, meta, embedding
        FROM search_posts
        WHERE published_at > now() - interval '7 days'
          AND embedding IS NOT NULL
        ORDER BY published_at DESC
-       LIMIT $1`,
-      [CANDIDATE_LIMIT],
+       LIMIT $<limit>`,
+      { limit: CANDIDATE_LIMIT },
     );
 
     const now = Date.now();

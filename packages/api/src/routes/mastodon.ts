@@ -1,32 +1,31 @@
 import { Router } from "express";
-import { getPool } from "@nostril/shared/db";
+import { getDb } from "@nostril/shared/db";
 import type { MastodonAccount } from "@nostril/shared";
 
 const router = Router();
-const pool = getPool();
+const db = getDb();
 
 router.get("/:instance/users/:acct", async (req, res) => {
   const { instance, acct } = req.params;
 
-  const account = await pool.query<MastodonAccount>(
-    "SELECT * FROM mastodon_accounts WHERE instance = $1 AND acct = $2 LIMIT 1",
-    [instance, acct],
+  const acc = await db.oneOrNone<MastodonAccount>(
+    "SELECT * FROM mastodon_accounts WHERE instance = $<instance> AND acct = $<acct> LIMIT 1",
+    { instance, acct },
   );
-  if (account.rows.length === 0) {
+  if (!acc) {
     res.status(404).json({ error: "account not found" });
     return;
   }
-  const acc = account.rows[0]!;
 
-  const statuses = await pool.query(
+  const statuses = await db.any(
     `SELECT id, content, content_text, url, created_at, raw
      FROM mastodon_statuses
-     WHERE instance = $1 AND account_id = $2
+     WHERE instance = $<instance> AND account_id = $<accountId>
      ORDER BY created_at DESC LIMIT 40`,
-    [instance, acc.id],
+    { instance, accountId: acc.id },
   );
 
-  res.json({ account: acc, statuses: statuses.rows });
+  res.json({ account: acc, statuses });
 });
 
 export default router;

@@ -1,4 +1,5 @@
-import { getPool, closePool } from "@nostril/shared/db";
+import { getDb, closeDb } from "@nostril/shared/db";
+import { initEmbed } from "./embed.ts";
 import { startNostr } from "./nostr.ts";
 import { startMastodon } from "./mastodon.ts";
 import { startRss } from "./rss.ts";
@@ -7,33 +8,35 @@ import { startRetention } from "./retention.ts";
 const LOCK_KEY = 424242;
 
 async function main() {
-  const pool = getPool(5);
+  const db = getDb(5);
 
   // Ensure only one worker indexes at a time (safety net for restarts / scaling).
-  const { rows } = await pool.query<{ locked: boolean }>(
-    "SELECT pg_try_advisory_lock($1) AS locked",
-    [LOCK_KEY],
+  const lock = await db.one<{ locked: boolean }>(
+    "SELECT pg_try_advisory_lock($<key>) AS locked",
+    { key: LOCK_KEY },
   );
-  if (!rows[0]?.locked) {
+  if (!lock.locked) {
     console.error("[worker] another instance holds the indexing lock, exiting");
-    await closePool();
+    await closeDb();
     process.exit(0);
   }
 
   console.log("[worker] acquired indexing lock");
 
+  await initEmbed();
+
   const stops = [
-    startNostr(pool),
-    startMastodon(pool),
-    startRss(pool),
-    startRetention(pool),
+    startNostr(db),
+    startMastodon(db),
+    startRss(db),
+    startRetention(db),
   ];
 
   const shutdown = async () => {
     console.log("[worker] shutting down...");
     stops.forEach((stop) => stop());
-    await pool.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => {});
-    await closePool();
+    await db.none("SELECT pg_advisory_unlock($<key>)", { key: LOCK_KEY }).catch(() => {});
+    await closeDb();
     process.exit(0);
   };
 

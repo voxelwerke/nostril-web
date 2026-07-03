@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { getPool } from "@nostril/shared/db";
+import { getDb } from "@nostril/shared/db";
 import type { SearchResult } from "@nostril/shared";
 
 const router = Router();
-const pool = getPool();
+const db = getDb();
 
 const ENTITY_SOURCES = new Set(["nostr_user", "mastodon_account", "rss_feed"]);
 const POST_SOURCES = new Set(["nostr_note", "mastodon_status", "rss_item"]);
@@ -28,28 +28,28 @@ router.get("/", async (req, res) => {
       SELECT source, source_key, title, body, author, url, image_url,
              NULL::timestamptz AS published_at, meta,
              ts_rank(search, query) * (1 + ln(1 + rank_score)) AS rank
-      FROM search_entities, plainto_tsquery('english', $1) query
+      FROM search_entities, plainto_tsquery('english', $<q>) query
       WHERE search @@ query
-        AND ($2 = 'all' OR source = $2)`);
+        AND ($<source> = 'all' OR source = $<source>)`);
   }
   if (wantPosts) {
     parts.push(`
       SELECT source, source_key, title, body, author, url, image_url,
              published_at, meta,
              ts_rank(search, query) AS rank
-      FROM search_posts, plainto_tsquery('english', $1) query
+      FROM search_posts, plainto_tsquery('english', $<q>) query
       WHERE search @@ query
-        AND ($2 = 'all' OR source = $2)
+        AND ($<source> = 'all' OR source = $<source>)
         AND published_at > now() - interval '28 days'`);
   }
 
   const sql = `
     ${parts.join("\nUNION ALL\n")}
     ORDER BY rank DESC, published_at DESC NULLS LAST
-    LIMIT $3 OFFSET $4`;
+    LIMIT $<limit> OFFSET $<offset>`;
 
   try {
-    const { rows } = await pool.query<SearchResult>(sql, [q, source, limit, offset]);
+    const rows = await db.any<SearchResult>(sql, { q, source, limit, offset });
     res.json(rows);
   } catch (e) {
     console.error("search error", e);

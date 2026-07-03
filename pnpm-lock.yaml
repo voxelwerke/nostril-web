@@ -35,9 +35,6 @@ importers:
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.9(typescript@5.9.3)
-      pg:
-        specifier: ^8.13.1
-        version: 8.22.0
       tsx:
         specifier: ^4.19.2
         version: 4.22.5
@@ -57,9 +54,6 @@ importers:
       '@types/node':
         specifier: ^22.10.5
         version: 22.20.0
-      '@types/pg':
-        specifier: ^8.11.10
-        version: 8.20.0
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
@@ -69,16 +63,13 @@ importers:
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.9(typescript@5.9.3)
-      pg:
-        specifier: ^8.13.1
-        version: 8.22.0
+      pg-promise:
+        specifier: ^12.7.0
+        version: 12.7.0(pg-query-stream@4.16.0(pg@8.22.0))
     devDependencies:
       '@types/better-sqlite3':
         specifier: ^7.6.13
         version: 7.6.13
-      '@types/pg':
-        specifier: ^8.11.10
-        version: 8.20.0
       better-sqlite3:
         specifier: ^12.6.2
         version: 12.11.1
@@ -119,9 +110,6 @@ importers:
       nostr-tools:
         specifier: ^2.23.3
         version: 2.23.9(typescript@5.9.3)
-      pg:
-        specifier: ^8.13.1
-        version: 8.22.0
       rss-parser:
         specifier: ^3.13.0
         version: 3.13.0
@@ -135,9 +123,6 @@ importers:
       '@types/node':
         specifier: ^22.10.5
         version: 22.20.0
-      '@types/pg':
-        specifier: ^8.11.10
-        version: 8.20.0
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
@@ -663,9 +648,6 @@ packages:
   '@types/node@22.20.0':
     resolution: {integrity: sha512-QWlFW2wf3nTjC13/DqRnBpR4ZO36VJH/JVBkA/vcnmbTBNQIlnObqyqZE1tUR7+Ni23Lda8R1BxMfbXRpCUx5g==}
 
-  '@types/pg@8.20.0':
-    resolution: {integrity: sha512-bEPFOaMAHTEP1EzpvHTbmwR8UsFyHSKsRisLIHVMXnpNefSbGA1bD6CVy+qKjGSqmZqNqBDV2azOBo8TgkcVow==}
-
   '@types/qs@6.15.1':
     resolution: {integrity: sha512-GZHUBZR9hckSUhrxmp1nG6NwdpM9fCunJwyThLW1X3AyHgd9IlHb6VANpQQqDr2o/qQp6McZ3y/IA2rVzKzSbw==}
 
@@ -698,6 +680,10 @@ packages:
 
   array-flatten@1.1.1:
     resolution: {integrity: sha512-PCVAQswWemu6UdxsDFFX/+gVeYqKAod3D3UVm91jHwynguOwAvYPhx8nNlM++NqRcK6CxxpUafjmhIdKiHibqg==}
+
+  assert-options@0.8.3:
+    resolution: {integrity: sha512-s6v4HnA+vYSGO4eZX+F+I3gvF74wPk+m6Z1Q3w1Dsg4Pnv/R24vhKAasoMVZGvDpOOfTg1Qz4ptZnEbuy95XsQ==}
+    engines: {node: '>=14.0.0'}
 
   babel-plugin-transform-hook-names@1.0.2:
     resolution: {integrity: sha512-5gafyjyyBTTdX/tQQ0hRgu4AhNHG/hqWi0ZZmg2xvs2FgRkJXzDNKBZCyoYqgFkovfDrgM8OoKg8karoUvWeCw==}
@@ -1275,17 +1261,37 @@ packages:
   pg-connection-string@2.14.0:
     resolution: {integrity: sha512-XwWDGcLRGCXAR8F/AM5bG7Q+A3Wm2s6QeEjlOKZLlH3UYcguiqCWKyWXVag5TLTIjR7oOJUY8kcADaZgWPyLeg==}
 
+  pg-cursor@2.21.0:
+    resolution: {integrity: sha512-IYvk/j+Suhtbo/C3uOf4JLsLK/gWxOTUOmYbDsbKnLaVJDq+KwhwK6ngpRfiCk8eDMS3AmGQABZCv0cREEzHQw==}
+    peerDependencies:
+      pg: ^8
+
   pg-int8@1.0.1:
     resolution: {integrity: sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw==}
     engines: {node: '>=4.0.0'}
+
+  pg-minify@1.8.0:
+    resolution: {integrity: sha512-jO/oJOununpx8DzKgvSsWm61P8JjwXlaxSlbbfTBo1nvSWoo/+I6qZYaSN96jm/KDwa5d+JMQwPGgcP6HXDRow==}
+    engines: {node: '>=16.0.0'}
 
   pg-pool@3.14.0:
     resolution: {integrity: sha512-gKtPkFdQPU3DksooVLi9LsjZxrsBUZIpa+7aVx+LV5pNh0KzP4Zleud2po+ConrxbuXGBJ6Hfer6hdgpIBpBaw==}
     peerDependencies:
       pg: '>=8.0'
 
+  pg-promise@12.7.0:
+    resolution: {integrity: sha512-DeE3zTm2ZX7X8nuGxE7BUvA8C0Qw5r4tzCnwWcjn/pMfLXTFxHoYcrr7qx/VGfldehwVrj7q/aI4jpxLE0Gqaw==}
+    engines: {node: '>=16.0'}
+    peerDependencies:
+      pg-query-stream: 4.16.0
+
   pg-protocol@1.15.0:
     resolution: {integrity: sha512-cq9sECI5s0+uPUXjbz8ioyPJni6RzsRib0US67i5IoTZKw8fNeYlVE7u8F4dG7vEJJtc5wdD1K189lCCUwqWTQ==}
+
+  pg-query-stream@4.16.0:
+    resolution: {integrity: sha512-vyqxAG4YVax43BCSfqcKxHSbh8YQshhVR0CjLNdo7MIM2UOqI+XsIYk0bVZJ0aKjQfjJQcGiGo9xK3hz0JcFyg==}
+    peerDependencies:
+      pg: ^8
 
   pg-types@2.2.0:
     resolution: {integrity: sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==}
@@ -1470,6 +1476,10 @@ packages:
   source-map@0.7.6:
     resolution: {integrity: sha512-i5uvt8C3ikiWeNZSVZNWcfZPItFQOsYTUAOkcUPGd8DqDy1uOUikjt5dG+uRlwyvR108Fb9DOd4GvXfT0N2/uQ==}
     engines: {node: '>= 12'}
+
+  spex@4.1.0:
+    resolution: {integrity: sha512-ktgNAQ1X9x1A3IMChM6XBDeVjhGPbLgPQ8aEzGOaUIhZTnLeJSBApvi3gXT789hee6h73N3jOeWkXDwoPbYT/A==}
+    engines: {node: '>=18.0.0'}
 
   split2@4.2.0:
     resolution: {integrity: sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg==}
@@ -2151,12 +2161,6 @@ snapshots:
     dependencies:
       undici-types: 6.21.0
 
-  '@types/pg@8.20.0':
-    dependencies:
-      '@types/node': 22.20.0
-      pg-protocol: 1.15.0
-      pg-types: 2.2.0
-
   '@types/qs@6.15.1': {}
 
   '@types/range-parser@1.2.7': {}
@@ -2192,6 +2196,8 @@ snapshots:
       color-convert: 2.0.1
 
   array-flatten@1.1.1: {}
+
+  assert-options@0.8.3: {}
 
   babel-plugin-transform-hook-names@1.0.2(@babel/core@7.29.7):
     dependencies:
@@ -2769,13 +2775,34 @@ snapshots:
 
   pg-connection-string@2.14.0: {}
 
+  pg-cursor@2.21.0(pg@8.22.0):
+    dependencies:
+      pg: 8.22.0
+
   pg-int8@1.0.1: {}
+
+  pg-minify@1.8.0: {}
 
   pg-pool@3.14.0(pg@8.22.0):
     dependencies:
       pg: 8.22.0
 
+  pg-promise@12.7.0(pg-query-stream@4.16.0(pg@8.22.0)):
+    dependencies:
+      assert-options: 0.8.3
+      pg: 8.22.0
+      pg-minify: 1.8.0
+      pg-query-stream: 4.16.0(pg@8.22.0)
+      spex: 4.1.0
+    transitivePeerDependencies:
+      - pg-native
+
   pg-protocol@1.15.0: {}
+
+  pg-query-stream@4.16.0(pg@8.22.0):
+    dependencies:
+      pg: 8.22.0
+      pg-cursor: 2.21.0(pg@8.22.0)
 
   pg-types@2.2.0:
     dependencies:
@@ -3020,6 +3047,8 @@ snapshots:
   source-map-js@1.2.1: {}
 
   source-map@0.7.6: {}
+
+  spex@4.1.0: {}
 
   split2@4.2.0: {}
 

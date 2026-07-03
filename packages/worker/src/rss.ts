@@ -1,5 +1,5 @@
 import Parser from "rss-parser";
-import type { Pool } from "@nostril/shared/db";
+import { type Db, pgRealArray } from "@nostril/shared/db";
 import { parseOpml } from "./opml.ts";
 import { stripHtml } from "./html.ts";
 import { embed } from "./embed.ts";
@@ -9,13 +9,13 @@ const POLL_INTERVAL_MS = parseInt(process.env.RSS_POLL_INTERVAL_MS || "1800000",
 
 const parser = new Parser({ timeout: 15000 });
 
-export function startRss(pool: Pool) {
+export function startRss(db: Db) {
   let stopped = false;
 
   async function loop() {
     try {
-      await seedFeeds(pool);
-      await pollAll(pool);
+      await seedFeeds(db);
+      await pollAll(db);
     } catch (e) {
       console.error("[rss] loop error", e);
     }
@@ -30,7 +30,7 @@ export function startRss(pool: Pool) {
   };
 }
 
-async function seedFeeds(pool: Pool) {
+async function seedFeeds(db: Db) {
   let feeds;
   try {
     feeds = await parseOpml(OPML_PATH);
@@ -39,19 +39,19 @@ async function seedFeeds(pool: Pool) {
     return;
   }
   for (const f of feeds) {
-    await pool.query(
-      `INSERT INTO rss_feeds (url, title, site_url) VALUES ($1, $2, $3)
+    await db.none(
+      `INSERT INTO rss_feeds (url, title, site_url) VALUES ($<url>, $<title>, $<siteUrl>)
        ON CONFLICT (url) DO UPDATE SET
          title = COALESCE(rss_feeds.title, excluded.title),
          site_url = COALESCE(rss_feeds.site_url, excluded.site_url)`,
-      [f.url, f.title, f.site_url],
+      { url: f.url, title: f.title, siteUrl: f.site_url },
     );
   }
   console.log(`[rss] seeded ${feeds.length} feeds`);
 }
 
-async function pollAll(pool: Pool) {
-  const { rows } = await pool.query<{
+async function pollAll(db: Db) {
+  const rows = await db.any<{
     id: number;
     url: string;
     etag: string | null;
@@ -60,7 +60,7 @@ async function pollAll(pool: Pool) {
 
   for (const feed of rows) {
     try {
-      await pollFeed(pool, feed);
+      await pollFeed(db, feed);
     } catch (e) {
       console.error(`[rss] ${feed.url} failed`, (e as Error).message);
     }
@@ -68,7 +68,7 @@ async function pollAll(pool: Pool) {
 }
 
 async function pollFeed(
-  pool: Pool,
+  db: Db,
   feed: { id: number; url: string; etag: string | null; last_modified: string | null },
 ) {
   const headers: Record<string, string> = {};
@@ -79,23 +79,23 @@ async function pollFeed(
   if (res.status === 304) return;
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-  const body = await res.text();
-  const parsed = await parser.parseString(body);
+  const raw = await res.text();
+  const parsed = await parser.parseString(raw);
 
-  await pool.query(
+  await db.none(
     `UPDATE rss_feeds SET
-       title = COALESCE(title, $2),
-       description = COALESCE($3, description),
-       etag = $4, last_modified = $5, last_fetched_at = $6
-     WHERE id = $1`,
-    [
-      feed.id,
-      parsed.title ?? null,
-      parsed.description ?? null,
-      res.headers.get("etag"),
-      res.headers.get("last-modified"),
-      Math.floor(Date.now() / 1000),
-    ],
+       title = COALESCE(title, $<title>),
+       description = COALESCE($<description>, description),
+       etag = $<etag>, last_modified = $<lastModified>, last_fetched_at = $<fetched>
+     WHERE id = $<id>`,
+    {
+      id: feed.id,
+      title: parsed.title ?? null,
+      description: parsed.description ?? null,
+      etag: res.headers.get("etag"),
+      lastModified: res.headers.get("last-modified"),
+      fetched: Math.floor(Date.now() / 1000),
+    },
   );
 
   for (const item of parsed.items ?? []) {
@@ -105,29 +105,37 @@ async function pollFeed(
     const contentHtml = item["content:encoded"] || item.content || item.contentSnippet || "";
     const contentText = stripHtml(contentHtml);
 
-    await pool.query(
+    await db.none(
       `INSERT INTO rss_items (feed_id, guid, title, content, content_text, link, published_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       VALUES ($<feedId>, $<guid>, $<title>, $<content>, $<contentText>, $<link>, $<published>)
        ON CONFLICT (feed_id, guid) DO NOTHING`,
-      [feed.id, guid, item.title ?? null, contentHtml, contentText, item.link ?? null, publishedAt],
+      {
+        feedId: feed.id,
+        guid,
+        title: item.title ?? null,
+        content: contentHtml,
+        contentText,
+        link: item.link ?? null,
+        published: publishedAt,
+      },
     );
 
     const body = contentText.slice(0, 4000);
     const embedding = await embed(item.title ?? null, body);
-    await pool.query(
+    await db.none(
       `INSERT INTO search_posts (source, source_key, title, body, author, url, published_at, meta, embedding)
-       VALUES ('rss_item', $1, $2, $3, $4, $5, $6, $7, $8)
+       VALUES ('rss_item', $<key>, $<title>, $<body>, $<author>, $<url>, $<published>, $<meta>, $<embedding>)
        ON CONFLICT (source, source_key) DO NOTHING`,
-      [
-        `${feed.id}:${guid}`,
-        item.title ?? null,
+      {
+        key: `${feed.id}:${guid}`,
+        title: item.title ?? null,
         body,
-        parsed.title ?? null,
-        item.link ?? null,
-        publishedAt,
-        JSON.stringify({ feed_id: feed.id, guid }),
-        embedding,
-      ],
+        author: parsed.title ?? null,
+        url: item.link ?? null,
+        published: publishedAt,
+        meta: JSON.stringify({ feed_id: feed.id, guid }),
+        embedding: pgRealArray(embedding),
+      },
     );
   }
 }

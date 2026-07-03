@@ -1,8 +1,26 @@
 import Database from "better-sqlite3";
-import { getPool, closePool } from "../src/db.ts";
+import { getDb, closeDb, pgp } from "../src/db.ts";
 
 const SQLITE_PATH = process.env.SQLITE_PATH || "./nostr-users.db";
 const CHUNK = 1000;
+
+const usersCols = new pgp.helpers.ColumnSet(
+  [
+    "pubkey", "name", "display_name", "about", "picture", "banner",
+    "website", "nip05", "lud16", "follower_count", "following_count",
+    "raw", "event_created_at", "seen_at",
+  ],
+  { table: "nostr_users" },
+);
+
+const entityCols = new pgp.helpers.ColumnSet(
+  ["source", "source_key", "title", "body", "author", "image_url", "rank_score", "meta"],
+  { table: "search_entities" },
+);
+
+const followsCols = new pgp.helpers.ColumnSet(["follower", "followee"], {
+  table: "nostr_follows",
+});
 
 interface UserRow {
   pubkey: string;
@@ -23,55 +41,51 @@ interface UserRow {
 
 async function main() {
   const sqlite = new Database(SQLITE_PATH, { readonly: true });
-  const pool = getPool();
+  const db = getDb();
 
   console.log(`Reading from ${SQLITE_PATH}...`);
 
   const users = sqlite.prepare("SELECT * FROM users").all() as UserRow[];
   console.log(`  ${users.length} users`);
 
+  const now = Math.floor(Date.now() / 1000);
+
   for (let i = 0; i < users.length; i += CHUNK) {
     const batch = users.slice(i, i + CHUNK);
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      for (const u of batch) {
-        await client.query(
-          `INSERT INTO nostr_users
-            (pubkey, name, display_name, about, picture, banner, website, nip05, lud16,
-             follower_count, following_count, raw, event_created_at, seen_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-           ON CONFLICT (pubkey) DO NOTHING`,
-          [
-            u.pubkey, u.name, u.display_name, u.about, u.picture, u.banner,
-            u.website, u.nip05, u.lud16, u.follower_count ?? 0,
-            u.following_count ?? 0, u.raw, u.event_created_at ?? 0,
-            u.seen_at ?? Math.floor(Date.now() / 1000),
-          ],
-        );
-        await client.query(
-          `INSERT INTO search_entities
-            (source, source_key, title, body, author, image_url, rank_score, meta)
-           VALUES ('nostr_user', $1, $2, $3, $4, $5, $6, $7)
-           ON CONFLICT (source, source_key) DO NOTHING`,
-          [
-            u.pubkey,
-            u.display_name || u.name,
-            u.about,
-            u.nip05,
-            u.picture,
-            u.follower_count ?? 0,
-            JSON.stringify({ pubkey: u.pubkey, nip05: u.nip05 }),
-          ],
-        );
-      }
-      await client.query("COMMIT");
-    } catch (e) {
-      await client.query("ROLLBACK");
-      throw e;
-    } finally {
-      client.release();
-    }
+    const userRows = batch.map((u) => ({
+      pubkey: u.pubkey,
+      name: u.name,
+      display_name: u.display_name,
+      about: u.about,
+      picture: u.picture,
+      banner: u.banner,
+      website: u.website,
+      nip05: u.nip05,
+      lud16: u.lud16,
+      follower_count: u.follower_count ?? 0,
+      following_count: u.following_count ?? 0,
+      raw: u.raw,
+      event_created_at: u.event_created_at ?? 0,
+      seen_at: u.seen_at ?? now,
+    }));
+    const entityRows = batch.map((u) => ({
+      source: "nostr_user",
+      source_key: u.pubkey,
+      title: u.display_name || u.name,
+      body: u.about,
+      author: u.nip05,
+      image_url: u.picture,
+      rank_score: u.follower_count ?? 0,
+      meta: JSON.stringify({ pubkey: u.pubkey, nip05: u.nip05 }),
+    }));
+
+    await db.tx(async (t) => {
+      await t.none(pgp.helpers.insert(userRows, usersCols) + " ON CONFLICT (pubkey) DO NOTHING");
+      await t.none(
+        pgp.helpers.insert(entityRows, entityCols) +
+          " ON CONFLICT (source, source_key) DO NOTHING",
+      );
+    });
     console.log(`  users ${Math.min(i + CHUNK, users.length)}/${users.length}`);
   }
 
@@ -82,22 +96,12 @@ async function main() {
 
   for (let i = 0; i < follows.length; i += CHUNK) {
     const batch = follows.slice(i, i + CHUNK);
-    const values: string[] = [];
-    const params: string[] = [];
-    batch.forEach((f, j) => {
-      values.push(`($${j * 2 + 1}, $${j * 2 + 2})`);
-      params.push(f.follower, f.followee);
-    });
-    await pool.query(
-      `INSERT INTO nostr_follows (follower, followee) VALUES ${values.join(",")}
-       ON CONFLICT DO NOTHING`,
-      params,
-    );
+    await db.none(pgp.helpers.insert(batch, followsCols) + " ON CONFLICT DO NOTHING");
     console.log(`  follows ${Math.min(i + CHUNK, follows.length)}/${follows.length}`);
   }
 
   sqlite.close();
-  await closePool();
+  await closeDb();
   console.log("Done.");
 }
 

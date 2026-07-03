@@ -1,7 +1,7 @@
 import express from "express";
 import compression from "compression";
 import cors from "cors";
-import { getPool } from "@nostril/shared/db";
+import { getDb } from "@nostril/shared/db";
 import searchRouter from "./routes/search.ts";
 import feedRouter from "./routes/feed.ts";
 import nostrRouter from "./routes/nostr.ts";
@@ -16,7 +16,7 @@ app.use(cors());
 
 app.get("/api/health", async (_req, res) => {
   try {
-    await getPool().query("SELECT 1");
+    await getDb().one("SELECT 1 AS ok");
     res.json({ ok: true });
   } catch {
     res.status(503).json({ ok: false });

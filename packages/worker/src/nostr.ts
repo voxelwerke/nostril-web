@@ -1,5 +1,12 @@
 import WebSocket from "ws";
-import type { Pool } from "@nostril/shared/db";
+import { type Db, pgp } from "@nostril/shared/db";
+
+const followsCols = new pgp.helpers.ColumnSet(["follower", "followee"], {
+  table: "nostr_follows",
+});
+const resolveCols = new pgp.helpers.ColumnSet(["pubkey", "queried_at"], {
+  table: "nostr_resolve_attempts",
+});
 
 const RELAYS = (
   process.env.NOSTR_RELAYS ||
@@ -20,13 +27,13 @@ interface NostrEvent {
   sig: string;
 }
 
-export function startNostr(pool: Pool) {
-  const resolver = new BatchResolver(pool);
+export function startNostr(db: Db) {
+  const resolver = new BatchResolver(db);
   const connections = RELAYS.map((url, i) =>
-    connectRelay(pool, resolver, url, `doom-${i}`),
+    connectRelay(db, resolver, url, `doom-${i}`),
   );
 
-  const countTimer = setInterval(() => void recomputeCounts(pool), COUNT_INTERVAL_MS);
+  const countTimer = setInterval(() => void recomputeCounts(db), COUNT_INTERVAL_MS);
 
   console.log(`[nostr] started, mode=${FIREHOSE ? "firehose+resolve" : "resolve"}, relays=${RELAYS.length}`);
 
@@ -36,7 +43,7 @@ export function startNostr(pool: Pool) {
   };
 }
 
-async function handleProfile(pool: Pool, event: NostrEvent) {
+async function handleProfile(db: Db, event: NostrEvent) {
   let meta: Record<string, unknown>;
   try {
     meta = JSON.parse(event.content || "{}");
@@ -52,10 +59,10 @@ async function handleProfile(pool: Pool, event: NostrEvent) {
   const nip05 = str(meta.nip05, 300);
   const now = Math.floor(Date.now() / 1000);
 
-  await pool.query(
+  await db.none(
     `INSERT INTO nostr_users
       (pubkey, name, display_name, about, picture, banner, website, nip05, lud16, raw, event_created_at, seen_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+     VALUES ($<pubkey>,$<name>,$<displayName>,$<about>,$<picture>,$<banner>,$<website>,$<nip05>,$<lud16>,$<raw>,$<createdAt>,$<seen>)
      ON CONFLICT (pubkey) DO UPDATE SET
        name = CASE WHEN excluded.event_created_at > nostr_users.event_created_at THEN excluded.name ELSE nostr_users.name END,
        display_name = CASE WHEN excluded.event_created_at > nostr_users.event_created_at THEN excluded.display_name ELSE nostr_users.display_name END,
@@ -68,50 +75,59 @@ async function handleProfile(pool: Pool, event: NostrEvent) {
        raw = CASE WHEN excluded.event_created_at > nostr_users.event_created_at THEN excluded.raw ELSE nostr_users.raw END,
        event_created_at = GREATEST(excluded.event_created_at, nostr_users.event_created_at),
        seen_at = excluded.seen_at`,
-    [
-      event.pubkey, name, displayName, about, picture,
-      str(meta.banner, 500), str(meta.website, 300), nip05, str(meta.lud16, 300),
-      event.content?.slice(0, 2000) ?? null, event.created_at, now,
-    ],
+    {
+      pubkey: event.pubkey,
+      name,
+      displayName,
+      about,
+      picture,
+      banner: str(meta.banner, 500),
+      website: str(meta.website, 300),
+      nip05,
+      lud16: str(meta.lud16, 300),
+      raw: event.content?.slice(0, 2000) ?? null,
+      createdAt: event.created_at,
+      seen: now,
+    },
   );
 
-  await pool.query(
+  await db.none(
     `INSERT INTO search_entities (source, source_key, title, body, author, image_url, meta)
-     VALUES ('nostr_user', $1, $2, $3, $4, $5, $6)
+     VALUES ('nostr_user', $<key>, $<title>, $<body>, $<author>, $<image>, $<meta>)
      ON CONFLICT (source, source_key) DO UPDATE SET
        title = excluded.title, body = excluded.body, author = excluded.author,
        image_url = excluded.image_url, meta = excluded.meta`,
-    [event.pubkey, displayName || name, about, nip05, picture, JSON.stringify({ pubkey: event.pubkey, nip05 })],
+    {
+      key: event.pubkey,
+      title: displayName || name,
+      body: about,
+      author: nip05,
+      image: picture,
+      meta: JSON.stringify({ pubkey: event.pubkey, nip05 }),
+    },
   );
 }
 
-async function handleFollowList(pool: Pool, event: NostrEvent) {
+async function handleFollowList(db: Db, event: NostrEvent) {
   const followees = event.tags
     .filter((t) => t[0] === "p" && t[1]?.length === 64)
     .map((t) => t[1]!);
   if (followees.length === 0) return;
 
-  const values: string[] = [];
-  const params: string[] = [];
-  followees.forEach((f, i) => {
-    values.push(`($${i * 2 + 1}, $${i * 2 + 2})`);
-    params.push(event.pubkey, f);
-  });
-  await pool.query(
-    `INSERT INTO nostr_follows (follower, followee) VALUES ${values.join(",")}
-     ON CONFLICT DO NOTHING`,
-    params,
+  const rows = followees.map((followee) => ({ follower: event.pubkey, followee }));
+  await db.none(
+    pgp.helpers.insert(rows, followsCols) + " ON CONFLICT DO NOTHING",
   );
 }
 
-async function recomputeCounts(pool: Pool) {
+async function recomputeCounts(db: Db) {
   console.log("[nostr] recomputing follow counts...");
-  await pool.query(`
+  await db.none(`
     UPDATE nostr_users u SET
       following_count = COALESCE((SELECT COUNT(*) FROM nostr_follows WHERE follower = u.pubkey), 0),
       follower_count = COALESCE((SELECT COUNT(*) FROM nostr_follows WHERE followee = u.pubkey), 0)
   `);
-  await pool.query(`
+  await db.none(`
     UPDATE search_entities se SET rank_score = u.follower_count
     FROM nostr_users u
     WHERE se.source = 'nostr_user' AND se.source_key = u.pubkey
@@ -119,36 +135,35 @@ async function recomputeCounts(pool: Pool) {
 }
 
 class BatchResolver {
-  private pool: Pool;
-  constructor(pool: Pool) {
-    this.pool = pool;
+  private db: Db;
+  constructor(db: Db) {
+    this.db = db;
   }
 
   async next(): Promise<string[] | null> {
     const now = Math.floor(Date.now() / 1000);
     const cutoff = now - 3600;
-    const { rows } = await this.pool.query<{ followee: string }>(
+    const rows = await this.db.any<{ followee: string }>(
       `SELECT DISTINCT f.followee FROM nostr_follows f
        WHERE f.followee NOT IN (SELECT pubkey FROM nostr_users)
-         AND f.followee NOT IN (SELECT pubkey FROM nostr_resolve_attempts WHERE queried_at > $1)
-       LIMIT $2`,
-      [cutoff, BATCH_SIZE],
+         AND f.followee NOT IN (SELECT pubkey FROM nostr_resolve_attempts WHERE queried_at > $<cutoff>)
+       LIMIT $<limit>`,
+      { cutoff, limit: BATCH_SIZE },
     );
     if (rows.length === 0) return null;
     const pubkeys = rows.map((r) => r.followee);
 
-    const values = pubkeys.map((_, i) => `($${i + 1}, ${now})`).join(",");
-    await this.pool.query(
-      `INSERT INTO nostr_resolve_attempts (pubkey, queried_at) VALUES ${values}
-       ON CONFLICT (pubkey) DO UPDATE SET queried_at = excluded.queried_at`,
-      pubkeys,
+    const attempts = pubkeys.map((pubkey) => ({ pubkey, queried_at: now }));
+    await this.db.none(
+      pgp.helpers.insert(attempts, resolveCols) +
+        " ON CONFLICT (pubkey) DO UPDATE SET queried_at = excluded.queried_at",
     );
     return pubkeys;
   }
 }
 
 function connectRelay(
-  pool: Pool,
+  db: Db,
   resolver: BatchResolver,
   url: string,
   subId: string,
@@ -202,8 +217,8 @@ function connectRelay(
       }
       if (msg[0] !== "EVENT" || !msg[2]) return;
       const event = msg[2] as NostrEvent;
-      if (event.kind === 0) void handleProfile(pool, event).catch(() => {});
-      else if (event.kind === 3) void handleFollowList(pool, event).catch(() => {});
+      if (event.kind === 0) void handleProfile(db, event).catch(() => {});
+      else if (event.kind === 3) void handleFollowList(db, event).catch(() => {});
     });
 
     ws.on("error", () => {});

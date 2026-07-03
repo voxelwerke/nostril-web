@@ -1,4 +1,4 @@
-import type { Pool } from "@nostril/shared/db";
+import type { Db } from "@nostril/shared/db";
 
 const DAYS = parseInt(process.env.RETENTION_DAYS || "28", 10);
 const INTERVAL_MS = parseInt(
@@ -13,17 +13,18 @@ const TABLES: { table: string; col: string }[] = [
   { table: "nostr_events", col: "created_at" },
 ];
 
-export function startRetention(pool: Pool) {
+export function startRetention(db: Db) {
   let stopped = false;
 
   async function sweep() {
     for (const { table, col } of TABLES) {
       try {
-        const res = await pool.query(
-          `DELETE FROM ${table} WHERE ${col} < now() - ($1 || ' days')::interval`,
-          [DAYS],
+        const n = await db.result(
+          `DELETE FROM ${table} WHERE ${col} < now() - ($<days> || ' days')::interval`,
+          { days: DAYS },
+          (r) => r.rowCount,
         );
-        if (res.rowCount) console.log(`[retention] ${table}: dropped ${res.rowCount}`);
+        if (n) console.log(`[retention] ${table}: dropped ${n}`);
       } catch (e) {
         console.error(`[retention] ${table} sweep failed`, (e as Error).message);
       }

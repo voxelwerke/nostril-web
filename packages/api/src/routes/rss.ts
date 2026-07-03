@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { getPool } from "@nostril/shared/db";
+import { getDb } from "@nostril/shared/db";
 import type { RssFeed } from "@nostril/shared";
 
 const router = Router();
-const pool = getPool();
+const db = getDb();
 
 router.get("/feeds/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
@@ -12,34 +12,37 @@ router.get("/feeds/:id", async (req, res) => {
     return;
   }
 
-  const feed = await pool.query<RssFeed>("SELECT * FROM rss_feeds WHERE id = $1", [id]);
-  if (feed.rows.length === 0) {
+  const feed = await db.oneOrNone<RssFeed>(
+    "SELECT * FROM rss_feeds WHERE id = $<id>",
+    { id },
+  );
+  if (!feed) {
     res.status(404).json({ error: "feed not found" });
     return;
   }
 
-  const items = await pool.query(
+  const items = await db.any(
     `SELECT feed_id, guid, title, content_text, link, published_at
-     FROM rss_items WHERE feed_id = $1
+     FROM rss_items WHERE feed_id = $<id>
      ORDER BY published_at DESC LIMIT 50`,
-    [id],
+    { id },
   );
 
-  res.json({ feed: feed.rows[0], items: items.rows });
+  res.json({ feed, items });
 });
 
 router.get("/items/:id", async (req, res) => {
   const guid = req.params.id;
-  const item = await pool.query(
+  const item = await db.oneOrNone(
     `SELECT feed_id, guid, title, content, link, published_at
-     FROM rss_items WHERE guid = $1 ORDER BY published_at DESC LIMIT 1`,
-    [guid],
+     FROM rss_items WHERE guid = $<guid> ORDER BY published_at DESC LIMIT 1`,
+    { guid },
   );
-  if (item.rows.length === 0) {
+  if (!item) {
     res.status(404).json({ error: "item not found" });
     return;
   }
-  res.json(item.rows[0]);
+  res.json(item);
 });
 
 export default router;

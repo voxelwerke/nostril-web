@@ -1,11 +1,11 @@
 import { Router } from "express";
 import WebSocket from "ws";
-import { getPool } from "@nostril/shared/db";
+import { getDb } from "@nostril/shared/db";
 import { npubToHex } from "@nostril/shared";
 import type { NostrUser } from "@nostril/shared";
 
 const router = Router();
-const pool = getPool();
+const db = getDb();
 
 const RELAYS = (
   process.env.RELAYS || "wss://nos.lol,wss://relay.primal.net,wss://purplepag.es"
@@ -18,15 +18,15 @@ router.get("/users/:npub", async (req, res) => {
     res.status(400).json({ error: "invalid npub" });
     return;
   }
-  const { rows } = await pool.query<NostrUser>(
-    "SELECT * FROM nostr_users WHERE pubkey = $1",
-    [hex],
+  const user = await db.oneOrNone<NostrUser>(
+    "SELECT * FROM nostr_users WHERE pubkey = $<hex>",
+    { hex },
   );
-  if (rows.length === 0) {
+  if (!user) {
     res.status(404).json({ error: "not found", pubkey: hex });
     return;
   }
-  res.json(rows[0]);
+  res.json(user);
 });
 
 router.get("/users/:npub/events", async (req, res) => {
@@ -50,18 +50,18 @@ router.get("/users/:npub/events", async (req, res) => {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   }
 
-  const cached = await pool.query<{ raw: unknown }>(
-    "SELECT raw FROM nostr_events WHERE pubkey = $1 ORDER BY created_at DESC LIMIT 200",
-    [hex],
+  const cached = await db.any<{ raw: unknown }>(
+    "SELECT raw FROM nostr_events WHERE pubkey = $<hex> ORDER BY created_at DESC LIMIT 200",
+    { hex },
   );
-  for (const row of cached.rows) {
+  for (const row of cached) {
     const ev = row.raw as { id?: string };
     if (ev?.id) {
       seen.add(ev.id);
       send("event", ev);
     }
   }
-  send("cached", { count: cached.rows.length });
+  send("cached", { count: cached.length });
 
   const sockets: WebSocket[] = [];
 
@@ -141,20 +141,20 @@ async function cacheNote(ev: {
   sig?: string;
 }) {
   try {
-    await pool.query(
+    await db.none(
       `INSERT INTO nostr_events (id, pubkey, kind, content, tags, created_at, sig, raw)
-       VALUES ($1, $2, $3, $4, $5, to_timestamp($6), $7, $8)
+       VALUES ($<id>, $<pubkey>, $<kind>, $<content>, $<tags>, to_timestamp($<created_at>), $<sig>, $<raw>)
        ON CONFLICT (id) DO NOTHING`,
-      [
-        ev.id,
-        ev.pubkey ?? "",
-        ev.kind,
-        ev.content ?? "",
-        JSON.stringify(ev.tags ?? []),
-        ev.created_at,
-        ev.sig ?? "",
-        JSON.stringify(ev),
-      ],
+      {
+        id: ev.id,
+        pubkey: ev.pubkey ?? "",
+        kind: ev.kind,
+        content: ev.content ?? "",
+        tags: JSON.stringify(ev.tags ?? []),
+        created_at: ev.created_at,
+        sig: ev.sig ?? "",
+        raw: JSON.stringify(ev),
+      },
     );
   } catch {
     // best-effort cache

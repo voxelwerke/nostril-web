@@ -27,12 +27,41 @@ function load(): Promise<FlagEmbedding> {
   return model;
 }
 
-function unit(v: number[]): number[] {
+// ONNX sessions aren't safe for concurrent inference — run one at a time.
+let chain: Promise<unknown> = Promise.resolve();
+
+function serial<T>(fn: () => Promise<T>): Promise<T> {
+  const run = chain.then(fn, fn);
+  chain = run.then(
+    () => {},
+    () => {},
+  );
+  return run;
+}
+
+function unit(v: ArrayLike<number>): number[] {
+  const a = Array.from(v);
   let s = 0;
-  for (const x of v) s += x * x;
+  for (const x of a) s += x * x;
   const d = Math.sqrt(s);
-  if (!d) return v;
-  return v.map((x) => x / d);
+  if (!d) return a;
+  return a.map((x) => x / d);
+}
+
+async function infer(text: string): Promise<number[] | null> {
+  const m = await load();
+  const gen = m.passageEmbed([text], 1);
+  for await (const batch of gen) {
+    const vec = batch[0];
+    return vec ? unit(vec) : null;
+  }
+  return null;
+}
+
+// Load model and warm ONNX before indexers start hammering it.
+export async function initEmbed(): Promise<void> {
+  await serial(() => infer("warmup"));
+  console.log("[embed] ready");
 }
 
 // L2-normalized sentence embedding for feed diversity sampling.
@@ -43,11 +72,10 @@ export async function embed(
   const text = [title, body].filter(Boolean).join("\n").trim().slice(0, MAX_CHARS);
   if (!text) return null;
 
-  const m = await load();
-  const gen = m.passageEmbed([text], 1);
-  for await (const batch of gen) {
-    const vec = batch[0];
-    return vec ? unit(vec) : null;
+  try {
+    return await serial(() => infer(text));
+  } catch (e) {
+    console.error("[embed] failed:", (e as Error).message);
+    return null;
   }
-  return null;
 }
