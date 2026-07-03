@@ -121,15 +121,17 @@ button:hover {
 .result {
   display: flex;
   gap: 0.75rem;
-  padding: 0.75rem;
-  background: var(--void);
-  border-radius: 8px;
-  text-decoration: none;
-  color: var(--read);
+  padding: 0.5rem 0;
 }
 
-.result:hover {
-  outline: 1px solid var(--laser);
+.result-link {
+  color: var(--laser);
+  text-decoration: underline;
+  font-weight: 700;
+}
+
+.result-link:hover {
+  opacity: 0.85;
 }
 
 .result img.avatar {
@@ -144,30 +146,21 @@ button:hover {
   min-width: 0;
 }
 
-.result .title {
-  font-weight: 700;
-  color: var(--acid);
-}
-
-.result .snippet {
-  opacity: 0.8;
-  font-size: 0.9rem;
+.result .line1 {
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.badge {
-  display: inline-block;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03rem;
-  background: var(--chill);
-  color: var(--read);
-  border-radius: 4px;
-  padding: 1px 6px;
-  margin-right: 0.4rem;
+.result .line2 {
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result .when {
+  color: #999;
 }
 
 .muted {
