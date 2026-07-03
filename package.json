@@ -9,6 +9,8 @@
     "build": "pnpm -r build",
     "migrate": "pnpm --filter @nostril/api migrate",
     "migrate:sqlite": "pnpm --filter @nostril/shared migrate:sqlite",
+    "start:web": "pnpm migrate && pnpm --filter @nostril/api start",
+    "start:worker": "pnpm --filter @nostril/worker start",
     "check": "pnpm -r check"
   },
   "devDependencies": {
