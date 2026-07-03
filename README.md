@@ -14,7 +14,7 @@ via a nightly cleanup sweep.
 
 ## Local development
 
-Requires Node 20+, pnpm, and a local PostgreSQL 18.
+Requires Node 22+, pnpm, and a local PostgreSQL 18.
 
 ```bash
 cp .env.example .env          # point DATABASE_URL at your local PG

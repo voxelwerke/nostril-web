@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim AS build
+FROM node:22-bookworm-slim AS build
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.20.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json .npmrc ./
@@ -6,7 +6,7 @@ COPY packages ./packages
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @nostril/web build
 
-FROM node:20-bookworm-slim
+FROM node:22-bookworm-slim
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.20.0 --activate
 ENV NODE_ENV=production
