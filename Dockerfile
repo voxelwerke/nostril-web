@@ -11,7 +11,7 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@10.20.0 --activate
 ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/tsconfig.base.json .npmrc ./
+COPY --from=build /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/tsconfig.base.json /app/.npmrc ./
 COPY --from=build /app/packages ./packages
 EXPOSE 8080
 CMD ["sh", "-c", "pnpm --filter @nostril/api migrate && pnpm --filter @nostril/api start"]
