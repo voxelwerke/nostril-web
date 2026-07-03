@@ -8,6 +8,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./db": "./src/db.ts",
+    "./uri": "./src/uri.ts",
+    "./uri-hash": "./src/uri-hash.ts",
     "./migrations/*": "./migrations/*"
   },
   "scripts": {

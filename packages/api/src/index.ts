@@ -7,6 +7,7 @@ import feedRouter from "./routes/feed.ts";
 import nostrRouter from "./routes/nostr.ts";
 import mastodonRouter from "./routes/mastodon.ts";
 import rssRouter from "./routes/rss.ts";
+import cRouter from "./routes/c.ts";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "8080", 10);
@@ -28,6 +29,7 @@ app.use("/api/feed", feedRouter);
 app.use("/api/nostr", nostrRouter);
 app.use("/api/mastodon", mastodonRouter);
 app.use("/api/rss", rssRouter);
+app.use("/api/c", cRouter);
 
 app.listen(PORT, () => {
   console.log(`api listening on :${PORT}`);

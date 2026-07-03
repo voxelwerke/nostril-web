@@ -1,4 +1,5 @@
 import { type Db, pgRealArray } from "@nostril/shared/db";
+import { mUri } from "@nostril/shared/uri";
 import { stripHtml } from "./html.ts";
 import { embed } from "./embed.ts";
 
@@ -135,13 +136,15 @@ async function upsertAccount(db: Db, instance: string, acc: Account, now: number
   );
 
   await db.none(
-    `INSERT INTO search_entities (source, source_key, title, body, author, url, image_url, rank_score, meta)
-     VALUES ('mastodon_account', $<key>, $<title>, $<body>, $<author>, $<url>, $<image>, $<rank>, $<meta>)
+    `INSERT INTO search_entities (source, source_key, uri, title, body, author, url, image_url, rank_score, meta)
+     VALUES ('mastodon_account', $<key>, $<uri>, $<title>, $<body>, $<author>, $<url>, $<image>, $<rank>, $<meta>)
      ON CONFLICT (source, source_key) DO UPDATE SET
+       uri = excluded.uri,
        title = excluded.title, body = excluded.body, author = excluded.author,
        url = excluded.url, image_url = excluded.image_url, rank_score = excluded.rank_score, meta = excluded.meta`,
     {
       key: `${instance}:${acc.id}`,
+      uri: mUri(acc.id, instance),
       title: acc.display_name || acc.acct,
       body: noteText,
       author: acc.acct,
@@ -176,11 +179,12 @@ async function upsertStatus(db: Db, instance: string, s: Status) {
   const body = text.slice(0, 4000);
   const embedding = await embed(null, body);
   await db.none(
-    `INSERT INTO search_posts (source, source_key, title, body, author, url, published_at, meta, embedding)
-     VALUES ('mastodon_status', $<key>, $<title>, $<body>, $<author>, $<url>, $<published>, $<meta>, $<embedding>)
+    `INSERT INTO search_posts (source, source_key, uri, title, body, author, url, published_at, meta, embedding)
+     VALUES ('mastodon_status', $<key>, $<uri>, $<title>, $<body>, $<author>, $<url>, $<published>, $<meta>, $<embedding>)
      ON CONFLICT (source, source_key) DO NOTHING`,
     {
       key: `${instance}:${s.id}`,
+      uri: mUri(s.id, instance),
       title: null,
       body,
       author: s.account.acct,

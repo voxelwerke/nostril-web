@@ -25,7 +25,7 @@ router.get("/", async (req, res) => {
   const parts: string[] = [];
   if (wantEntities) {
     parts.push(`
-      SELECT source, source_key, title, body, author, url, image_url,
+      SELECT uri, source, source_key, title, body, author, url, image_url,
              NULL::timestamptz AS published_at, meta,
              ts_rank(search, query) * (1 + ln(1 + rank_score)) AS rank
       FROM search_entities, plainto_tsquery('english', $<q>) query
@@ -34,7 +34,7 @@ router.get("/", async (req, res) => {
   }
   if (wantPosts) {
     parts.push(`
-      SELECT source, source_key, title, body, author, url, image_url,
+      SELECT uri, source, source_key, title, body, author, url, image_url,
              published_at, meta,
              ts_rank(search, query) AS rank
       FROM search_posts, plainto_tsquery('english', $<q>) query

@@ -1,5 +1,6 @@
 import Parser from "rss-parser";
 import { type Db, pgRealArray } from "@nostril/shared/db";
+import { rssItemUri } from "@nostril/shared/uri-hash";
 import { parseOpml } from "./opml.ts";
 import { stripHtml } from "./html.ts";
 import { embed } from "./embed.ts";
@@ -123,11 +124,12 @@ async function pollFeed(
     const body = contentText.slice(0, 4000);
     const embedding = await embed(item.title ?? null, body);
     await db.none(
-      `INSERT INTO search_posts (source, source_key, title, body, author, url, published_at, meta, embedding)
-       VALUES ('rss_item', $<key>, $<title>, $<body>, $<author>, $<url>, $<published>, $<meta>, $<embedding>)
+      `INSERT INTO search_posts (source, source_key, uri, title, body, author, url, published_at, meta, embedding)
+       VALUES ('rss_item', $<key>, $<uri>, $<title>, $<body>, $<author>, $<url>, $<published>, $<meta>, $<embedding>)
        ON CONFLICT (source, source_key) DO NOTHING`,
       {
         key: `${feed.id}:${guid}`,
+        uri: rssItemUri(item.link ?? null, feed.url, guid),
         title: item.title ?? null,
         body,
         author: parsed.title ?? null,

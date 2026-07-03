@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { getDb, closeDb, pgp } from "../src/db.ts";
+import { nUri } from "../src/uri.ts";
 
 const SQLITE_PATH = process.env.SQLITE_PATH || "./nostr-users.db";
 const CHUNK = 1000;
@@ -14,7 +15,7 @@ const usersCols = new pgp.helpers.ColumnSet(
 );
 
 const entityCols = new pgp.helpers.ColumnSet(
-  ["source", "source_key", "title", "body", "author", "image_url", "rank_score", "meta"],
+  ["source", "source_key", "uri", "title", "body", "author", "image_url", "rank_score", "meta"],
   { table: "search_entities" },
 );
 
@@ -71,6 +72,7 @@ async function main() {
     const entityRows = batch.map((u) => ({
       source: "nostr_user",
       source_key: u.pubkey,
+      uri: nUri(u.pubkey),
       title: u.display_name || u.name,
       body: u.about,
       author: u.nip05,

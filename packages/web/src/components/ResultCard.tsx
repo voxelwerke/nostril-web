@@ -1,3 +1,4 @@
+import { encodeUriPath } from "@nostril/shared/uri";
 import { hexToNpub } from "@nostril/shared";
 import type { SearchResult } from "@nostril/shared";
 
@@ -25,6 +26,7 @@ function fmtWhen(iso: string): string {
 }
 
 function linkFor(r: SearchResult): string {
+  if (r.uri) return `/c/${encodeUriPath(r.uri)}`;
   const meta = (r.meta ?? {}) as Record<string, string>;
   switch (r.source) {
     case "nostr_user":

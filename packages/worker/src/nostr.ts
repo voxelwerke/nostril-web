@@ -1,5 +1,6 @@
 import WebSocket from "ws";
 import { type Db, pgp } from "@nostril/shared/db";
+import { nUri } from "@nostril/shared/uri";
 
 const followsCols = new pgp.helpers.ColumnSet(["follower", "followee"], {
   table: "nostr_follows",
@@ -92,13 +93,15 @@ async function handleProfile(db: Db, event: NostrEvent) {
   );
 
   await db.none(
-    `INSERT INTO search_entities (source, source_key, title, body, author, image_url, meta)
-     VALUES ('nostr_user', $<key>, $<title>, $<body>, $<author>, $<image>, $<meta>)
+    `INSERT INTO search_entities (source, source_key, uri, title, body, author, image_url, meta)
+     VALUES ('nostr_user', $<key>, $<uri>, $<title>, $<body>, $<author>, $<image>, $<meta>)
      ON CONFLICT (source, source_key) DO UPDATE SET
+       uri = excluded.uri,
        title = excluded.title, body = excluded.body, author = excluded.author,
        image_url = excluded.image_url, meta = excluded.meta`,
     {
       key: event.pubkey,
+      uri: nUri(event.pubkey),
       title: displayName || name,
       body: about,
       author: nip05,

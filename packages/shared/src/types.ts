@@ -3,6 +3,7 @@ export type PostSource = "nostr_note" | "mastodon_status" | "rss_item";
 export type DocSource = EntitySource | PostSource;
 
 export interface SearchResult {
+  uri: string | null;
   source: DocSource;
   source_key: string;
   title: string | null;

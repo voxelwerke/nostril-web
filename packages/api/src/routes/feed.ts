@@ -19,7 +19,7 @@ router.get("/", async (req, res) => {
 
   try {
     const rows = await db.any<Row>(
-      `SELECT source, source_key, title, body, author, url, image_url,
+      `SELECT uri, source, source_key, title, body, author, url, image_url,
               published_at, meta, embedding
        FROM search_posts
        WHERE published_at > now() - interval '7 days'
