@@ -1,0 +1,17 @@
+FROM node:20-bookworm-slim AS build
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@10.20.0 --activate
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json .npmrc ./
+COPY packages ./packages
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @nostril/web build
+
+FROM node:20-bookworm-slim
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@10.20.0 --activate
+ENV NODE_ENV=production
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/tsconfig.base.json .npmrc ./
+COPY --from=build /app/packages ./packages
+EXPOSE 8080
+CMD ["sh", "-c", "pnpm --filter @nostril/api migrate && pnpm --filter @nostril/api start"]

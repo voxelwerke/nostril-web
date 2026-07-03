@@ -1,0 +1,9 @@
+node_modules
+packages/**/dist
+packages/worker/local_cache
+.git
+.env*
+!.env.example
+nostr-users.db
+nostr-users.db-shm
+nostr-users.db-wal

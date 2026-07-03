@@ -34,9 +34,28 @@ SQLITE_PATH=./nostr-users.db pnpm migrate:sqlite
 
 ## Deployment
 
-Deploys to DigitalOcean App Platform via buildpacks (no Docker). See
-[.do/app.yaml](.do/app.yaml). Uses a managed **PostgreSQL 18** database — no
-extensions beyond `pg_trgm`.
+Production runs on [Sliplane](https://sliplane.io) via the root [`Dockerfile`](Dockerfile).
+Local dev does **not** use Docker — keep using `pnpm dev`.
+
+Three services on one server (private networking):
+
+| Service | Exposed | Notes |
+|---------|---------|-------|
+| **postgres** | no | Sliplane Postgres preset |
+| **nostril-web** | yes | Dockerfile default CMD — migrate + API + static web |
+| **nostril-worker** | no | Same Dockerfile, CMD override: `pnpm --filter @nostril/worker start` |
+
+**nostril-web** settings: branch `main`, healthcheck `/api/health`, env
+`DATABASE_URL` (internal postgres host) and optional `RELAYS`. Do not set
+`PORT` — Sliplane injects it.
+
+**nostril-worker** env: same `DATABASE_URL`, plus `FIREHOSE=true`,
+`MASTODON_INSTANCES`, `OPML_PATH=packages/worker/feeds.opml`, `RETENTION_DAYS`,
+`NOSTR_RELAYS` (see [`.env.example`](.env.example)). Optional volume on
+`packages/worker/local_cache` for fastembed model cache.
+
+DigitalOcean App Platform config lives in [`.do/app.yaml`](.do/app.yaml) as an
+alternate target. Uses **PostgreSQL 18** — no extensions beyond `pg_trgm`.
 
 ## Recent news feed
 
