@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head>
+    <title>Nostril NZ feeds</title>
+  </head>
+  <body>
+    <outline text="NZ News &amp; Blogs">
+      <outline type="rss" text="RNZ" title="RNZ" xmlUrl="https://www.rnz.co.nz/rss/national.xml" htmlUrl="https://www.rnz.co.nz" />
+      <outline type="rss" text="The Spinoff" title="The Spinoff" xmlUrl="https://thespinoff.co.nz/feed" htmlUrl="https://thespinoff.co.nz" />
+      <outline type="rss" text="Stuff" title="Stuff" xmlUrl="https://www.stuff.co.nz/rss" htmlUrl="https://www.stuff.co.nz" />
+    </outline>
+  </body>
+</opml>

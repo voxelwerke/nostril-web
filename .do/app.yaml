@@ -1,0 +1,74 @@
+name: nostril
+region: syd
+
+databases:
+  - name: db
+    engine: PG
+    version: "18"
+    production: false
+
+services:
+  - name: api
+    github:
+      repo: voxelwerke/nostril-web
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    build_command: pnpm install && pnpm --filter @nostril/api build
+    run_command: pnpm --filter @nostril/api migrate && pnpm --filter @nostril/api start
+    http_port: 8080
+    instance_size_slug: basic-xxs
+    instance_count: 1
+    health_check:
+      http_path: /api/health
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_AND_BUILD_TIME
+        value: ${db.DATABASE_URL}
+
+  - name: worker
+    github:
+      repo: voxelwerke/nostril-web
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    build_command: pnpm install && pnpm --filter @nostril/worker build
+    run_command: pnpm --filter @nostril/worker start
+    instance_size_slug: basic-xxs
+    instance_count: 1
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${db.DATABASE_URL}
+      - key: OPML_PATH
+        value: packages/worker/feeds.opml
+      - key: MASTODON_INSTANCES
+        value: mastodon.nz
+      - key: FIREHOSE
+        value: "true"
+      - key: RETENTION_DAYS
+        value: "28"
+
+static_sites:
+  - name: web
+    github:
+      repo: voxelwerke/nostril-web
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    build_command: pnpm install && pnpm --filter @nostril/web build
+    output_dir: packages/web/dist
+    catchall_document: index.html
+
+ingress:
+  rules:
+    - match:
+        path:
+          prefix: /api
+      component:
+        name: api
+    - match:
+        path:
+          prefix: /
+      component:
+        name: web

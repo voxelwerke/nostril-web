@@ -1,0 +1,196 @@
+:root {
+  --read: rgb(243, 244, 244);
+  --acid: rgb(228, 255, 48);
+  --laser: #ff0087;
+  --chill: hsl(265, 100%, 47%);
+  --void: rgba(0, 0, 0, 0.8);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #232323;
+  color: var(--read);
+}
+
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+a {
+  color: var(--laser);
+}
+
+h1,
+h2,
+h3 {
+  color: var(--acid);
+  letter-spacing: -0.03rem;
+}
+
+h1 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+header .brand {
+  background: var(--acid);
+  color: var(--void);
+  transform: rotate(-3deg);
+  font-size: 1.4rem;
+  font-weight: 700;
+  padding: 2px 10px;
+  text-decoration: none;
+}
+
+form.search {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+input {
+  flex: 1;
+  border-radius: 5px;
+  border: none;
+  padding: 0.5rem;
+  background: var(--void);
+  color: var(--laser);
+  outline: none;
+  font: inherit;
+}
+
+button {
+  background: var(--laser);
+  color: var(--void);
+  border-radius: 5px;
+  border: none;
+  padding: 0.4rem 0.9rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--read);
+}
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+
+.tab {
+  background: var(--void);
+  color: var(--read);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.tab.active {
+  background: var(--acid);
+  color: var(--void);
+  font-weight: 700;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.result {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--void);
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--read);
+}
+
+.result:hover {
+  outline: 1px solid var(--laser);
+}
+
+.result img.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.result .body {
+  min-width: 0;
+}
+
+.result .title {
+  font-weight: 700;
+  color: var(--acid);
+}
+
+.result .snippet {
+  opacity: 0.8;
+  font-size: 0.9rem;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03rem;
+  background: var(--chill);
+  color: var(--read);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-right: 0.4rem;
+}
+
+.muted {
+  opacity: 0.6;
+}
+
+.banner {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.profile-info {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin: 1rem 0;
+}
+
+.post {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--void);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

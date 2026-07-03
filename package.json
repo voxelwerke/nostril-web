@@ -1,34 +1,19 @@
 {
   "name": "nostril",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "packageManager": "pnpm@10.20.0",
   "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "preview": "vite preview",
-    "indexer": "node src/indexer/accounts.ts",
-    "prepare": "svelte-kit sync || echo ''",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+    "dev": "concurrently -n web,api,worker -c cyan,magenta,yellow \"pnpm --filter @nostril/web dev\" \"pnpm --filter @nostril/api dev\" \"pnpm --filter @nostril/worker dev\"",
+    "build": "pnpm -r build",
+    "migrate": "pnpm --filter @nostril/api migrate",
+    "migrate:sqlite": "pnpm --filter @nostril/shared migrate:sqlite",
+    "check": "pnpm -r check"
   },
   "devDependencies": {
-    "@sveltejs/adapter-auto": "^7.0.0",
-    "@sveltejs/kit": "^2.50.2",
-    "@sveltejs/vite-plugin-svelte": "^6.2.4",
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/ws": "^8.18.1",
-    "svelte": "^5.54.0",
-    "svelte-check": "^4.4.2",
-    "typescript": "^5.9.3",
-    "vite": "^7.3.1"
-  },
-  "dependencies": {
-    "@fontsource-variable/bricolage-grotesque": "^5.2.10",
-    "@sveltejs/adapter-node": "^5.5.4",
-    "better-sqlite3": "^12.6.2",
-    "nostr-tools": "^2.23.3",
-    "ws": "^8.20.0"
+    "concurrently": "^9.1.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.3"
   }
 }
